@@ -1,6 +1,8 @@
 package com.bj.ilji_server.schedule.entity;
 
+import com.bj.ilji_server.schedule.dto.ScheduleUpdateRequest;
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -52,4 +54,30 @@ public class Schedule {
     @UpdateTimestamp // Entity가 수정될 때 자동으로 현재 시간 저장
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Builder
+    public Schedule(Long userId, Long calendarId, String title, String location, String tags, String description, LocalDateTime startTime, LocalDateTime endTime, boolean isAllDay, String rrule) {
+        this.userId = userId;
+        this.calendarId = calendarId;
+        this.title = title;
+        this.location = location;
+        this.tags = tags;
+        this.description = description;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.isAllDay = isAllDay;
+        this.rrule = rrule;
+    }
+
+    public void update(ScheduleUpdateRequest request) {
+        this.calendarId = request.getCalendarId();
+        this.title = request.getTitle();
+        this.location = request.getLocation();
+        this.tags = request.getTags();
+        this.description = request.getDescription();
+        this.startTime = request.getStartTime();
+        this.endTime = request.getEndTime();
+        this.isAllDay = request.isAllDay();
+        this.rrule = request.getRrule();
+    }
 }

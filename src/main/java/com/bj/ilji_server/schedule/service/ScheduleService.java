@@ -1,5 +1,7 @@
 package com.bj.ilji_server.schedule.service;
 
+import com.bj.ilji_server.schedule.dto.ScheduleCreateRequest;
+import com.bj.ilji_server.schedule.dto.ScheduleUpdateRequest;
 import com.bj.ilji_server.schedule.entity.Schedule;
 import com.bj.ilji_server.schedule.dto.ScheduleResponse;
 import com.bj.ilji_server.schedule.repository.ScheduleRepository;
@@ -22,5 +24,27 @@ public class ScheduleService {
         return schedules.stream()
                 .map(ScheduleResponse::new) // stream을 통해 각 Schedule Entity를 DTO로 변환
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public ScheduleResponse createSchedule(ScheduleCreateRequest request) {
+        Schedule newSchedule = request.toEntity();
+        Schedule savedSchedule = scheduleRepository.save(newSchedule);
+        return new ScheduleResponse(savedSchedule);
+    }
+
+    @Transactional
+    public ScheduleResponse updateSchedule(Long scheduleId, ScheduleUpdateRequest request) {
+        Schedule schedule = scheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 일정을 찾을 수 없습니다. id=" + scheduleId));
+
+        schedule.update(request);
+
+        return new ScheduleResponse(schedule);
+    }
+
+    @Transactional
+    public void deleteSchedule(Long scheduleId) {
+        scheduleRepository.deleteById(scheduleId);
     }
 }
