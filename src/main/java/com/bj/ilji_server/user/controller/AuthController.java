@@ -1,9 +1,9 @@
-package com.bj.ilji_server.controller;
+package com.bj.ilji_server.user.controller;
 
-import com.bj.ilji_server.dto.AuthResponse;
-import com.bj.ilji_server.dto.GoogleLoginRequest;
-import com.bj.ilji_server.entity.User;
-import com.bj.ilji_server.service.AuthService;
+import com.bj.ilji_server.user.dto.AuthResponse;
+import com.bj.ilji_server.user.dto.GoogleLoginRequest;
+import com.bj.ilji_server.user.entity.User;
+import com.bj.ilji_server.user.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

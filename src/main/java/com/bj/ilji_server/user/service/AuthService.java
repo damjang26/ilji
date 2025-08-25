@@ -1,9 +1,9 @@
-package com.bj.ilji_server.service;
+package com.bj.ilji_server.user.service;
 
-import com.bj.ilji_server.config.jwt.JwtUtil;
-import com.bj.ilji_server.dto.AuthResponse;
-import com.bj.ilji_server.entity.User;
-import com.bj.ilji_server.repository.UserRepository;
+import com.bj.ilji_server.user.config.jwt.JwtUtil;
+import com.bj.ilji_server.user.dto.AuthResponse;
+import com.bj.ilji_server.user.entity.User;
+import com.bj.ilji_server.user.repository.UserRepository;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import lombok.RequiredArgsConstructor;

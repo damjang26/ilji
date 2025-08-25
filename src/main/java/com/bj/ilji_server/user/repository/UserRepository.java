@@ -1,6 +1,6 @@
-package com.bj.ilji_server.repository;
+package com.bj.ilji_server.user.repository;
 
-import com.bj.ilji_server.entity.User;
+import com.bj.ilji_server.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

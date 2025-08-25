@@ -1,7 +1,7 @@
-package com.bj.ilji_server.config.jwt;
+package com.bj.ilji_server.user.config.jwt;
 
-import com.bj.ilji_server.entity.User;
-import com.bj.ilji_server.repository.UserRepository;
+import com.bj.ilji_server.user.entity.User;
+import com.bj.ilji_server.user.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
