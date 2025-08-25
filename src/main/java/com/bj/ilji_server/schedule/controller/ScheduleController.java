@@ -1,13 +1,12 @@
 package com.bj.ilji_server.schedule.controller;
 
+import com.bj.ilji_server.schedule.dto.ScheduleCreateRequest;
+import com.bj.ilji_server.schedule.dto.ScheduleUpdateRequest;
 import com.bj.ilji_server.schedule.service.ScheduleService;
 import com.bj.ilji_server.schedule.dto.ScheduleResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -22,5 +21,23 @@ public class ScheduleController {
     public ResponseEntity<List<ScheduleResponse>> getSchedules(@PathVariable Long userId) {
         List<ScheduleResponse> schedules = scheduleService.getSchedulesByUserId(userId);
         return ResponseEntity.ok(schedules);
+    }
+
+    @PostMapping
+    public ResponseEntity<ScheduleResponse> createSchedule(@RequestBody ScheduleCreateRequest request) {
+        ScheduleResponse newSchedule = scheduleService.createSchedule(request);
+        return ResponseEntity.ok(newSchedule);
+    }
+
+    @PutMapping("/{scheduleId}")
+    public ResponseEntity<ScheduleResponse> updateSchedule(@PathVariable Long scheduleId, @RequestBody ScheduleUpdateRequest request) {
+        ScheduleResponse updatedSchedule = scheduleService.updateSchedule(scheduleId, request);
+        return ResponseEntity.ok(updatedSchedule);
+    }
+
+    @DeleteMapping("/{scheduleId}")
+    public ResponseEntity<Void> deleteSchedule(@PathVariable Long scheduleId) {
+        scheduleService.deleteSchedule(scheduleId);
+        return ResponseEntity.noContent().build();
     }
 }

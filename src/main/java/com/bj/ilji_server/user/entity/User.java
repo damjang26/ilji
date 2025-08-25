@@ -39,7 +39,8 @@ public class User implements UserDetails {
     private String providerId;
 
     @Builder
-    public User(String email, String name, String picture, String provider, String providerId) {
+    public User(Long id, String email, String name, String picture, String provider, String providerId) {
+        this.id = id;
         this.email = email;
         this.name = name;
         this.picture = picture;
