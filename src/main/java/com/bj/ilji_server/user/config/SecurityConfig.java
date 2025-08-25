@@ -1,6 +1,6 @@
-package com.bj.ilji_server.config;
+package com.bj.ilji_server.user.config;
 
-import com.bj.ilji_server.config.jwt.JwtAuthenticationFilter;
+import com.bj.ilji_server.user.config.jwt.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

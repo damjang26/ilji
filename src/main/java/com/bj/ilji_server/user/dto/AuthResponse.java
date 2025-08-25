@@ -1,6 +1,6 @@
-package com.bj.ilji_server.dto;
+package com.bj.ilji_server.user.dto;
 
-import com.bj.ilji_server.entity.User;
+import com.bj.ilji_server.user.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 

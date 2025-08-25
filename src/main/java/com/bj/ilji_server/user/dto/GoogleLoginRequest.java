@@ -1,4 +1,4 @@
-package com.bj.ilji_server.dto;
+package com.bj.ilji_server.user.dto;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

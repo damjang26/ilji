@@ -1,4 +1,4 @@
-package com.bj.ilji_server.entity;
+package com.bj.ilji_server.user.entity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
