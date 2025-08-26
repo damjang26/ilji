@@ -10,7 +10,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class ScheduleCreateRequest {
 
-    private Long userId;
     private Long calendarId;
     private String title;
     private String location;
@@ -23,7 +22,6 @@ public class ScheduleCreateRequest {
 
     public Schedule toEntity() {
         return Schedule.builder()
-                .userId(this.userId)
                 .calendarId(this.calendarId)
                 .title(this.title)
                 .location(this.location)
