@@ -12,16 +12,18 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@RestController // 이 클래스가 REST API를 위한 Controller임을 나타냅니다.
-@RequestMapping("/api/schedules") // 이 컨트롤러의 모든 요청은 /api/schedules 로 시작합니다.
+@RestController
+@RequestMapping("/api/schedules")
 @RequiredArgsConstructor
 public class ScheduleController {
 
     private final ScheduleService scheduleService;
 
     @GetMapping
-    public ResponseEntity<List<ScheduleResponse>> getMySchedules(@AuthenticationPrincipal User user) {
-        List<ScheduleResponse> schedules = scheduleService.getSchedulesForUser(user);
+    public ResponseEntity<List<ScheduleResponse>> getMySchedules(
+            @AuthenticationPrincipal User user,
+            @RequestParam(required = false) List<Long> tagIds) { // tagIds 파라미터 추가
+        List<ScheduleResponse> schedules = scheduleService.getSchedulesForUser(user, tagIds);
         return ResponseEntity.ok(schedules);
     }
 

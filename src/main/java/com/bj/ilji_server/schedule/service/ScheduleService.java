@@ -1,5 +1,7 @@
 package com.bj.ilji_server.schedule.service;
 
+import com.bj.ilji_server.tag.entity.Tag;
+import com.bj.ilji_server.tag.repository.TagRepository;
 import com.bj.ilji_server.schedule.dto.ScheduleCreateRequest;
 import com.bj.ilji_server.schedule.dto.ScheduleUpdateRequest;
 import com.bj.ilji_server.schedule.entity.Schedule;
@@ -10,33 +12,41 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor // final 필드에 대한 생성자를 자동으로 만들어줍니다. (의존성 주입)
+@RequiredArgsConstructor
 public class ScheduleService {
 
     private final ScheduleRepository scheduleRepository;
+    private final TagRepository tagRepository;
 
-    @Transactional(readOnly = true) // 데이터를 읽기만 하는 트랜잭션임을 명시 (성능 향상)
-    public List<ScheduleResponse> getSchedulesForUser(User user) {
-        List<Schedule> schedules = scheduleRepository.findByUserIdOrderByStartTimeAsc(user.getId());
+    @Transactional(readOnly = true)
+    public List<ScheduleResponse> getSchedulesForUser(User user, List<Long> tagIds) {
+        List<Schedule> schedules;
+        if (CollectionUtils.isEmpty(tagIds)) {
+            schedules = scheduleRepository.findByUserIdOrderByStartTimeAsc(user.getId());
+        } else {
+            schedules = scheduleRepository.findByUserIdAndTagIdInOrderByStartTimeAsc(user.getId(), tagIds);
+        }
         return schedules.stream()
-                .map(ScheduleResponse::new) // stream을 통해 각 Schedule Entity를 DTO로 변환
+                .map(ScheduleResponse::new)
                 .collect(Collectors.toList());
     }
 
     @Transactional
     public ScheduleResponse createSchedule(User user, ScheduleCreateRequest request) {
-        // DTO를 Entity로 변환하고, 인증된 사용자의 ID를 설정합니다.
+        Tag tag = findTagById(request.getTagId());
+
         Schedule newSchedule = Schedule.builder()
-                .userId(user.getId()) // ✅ 인증된 사용자의 ID를 직접 설정
+                .userId(user.getId())
                 .calendarId(request.getCalendarId())
                 .title(request.getTitle())
                 .location(request.getLocation())
-                .tags(request.getTags())
+                .tag(tag)
                 .description(request.getDescription())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
@@ -53,12 +63,12 @@ public class ScheduleService {
         Schedule schedule = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 일정을 찾을 수 없습니다. id=" + scheduleId));
 
-        // ✅ 소유권 검증: 요청한 사용자가 일정의 소유자인지 확인합니다.
         if (!schedule.getUserId().equals(user.getId())) {
             throw new AccessDeniedException("이 일정을 수정할 권한이 없습니다.");
         }
 
-        schedule.update(request);
+        Tag tag = findTagById(request.getTagId());
+        schedule.update(request, tag);
 
         return new ScheduleResponse(schedule);
     }
@@ -68,10 +78,17 @@ public class ScheduleService {
         Schedule schedule = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 일정을 찾을 수 없습니다. id=" + scheduleId));
 
-        // ✅ 소유권 검증: 요청한 사용자가 일정의 소유자인지 확인합니다.
         if (!schedule.getUserId().equals(user.getId())) {
             throw new AccessDeniedException("이 일정을 삭제할 권한이 없습니다.");
         }
         scheduleRepository.deleteById(scheduleId);
+    }
+
+    private Tag findTagById(Long tagId) {
+        if (tagId == null) {
+            return null;
+        }
+        return tagRepository.findById(tagId)
+                .orElseThrow(() -> new IllegalArgumentException("태그를 찾을 수 없습니다. id=" + tagId));
     }
 }

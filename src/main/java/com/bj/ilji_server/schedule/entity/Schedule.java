@@ -1,5 +1,6 @@
 package com.bj.ilji_server.schedule.entity;
 
+import com.bj.ilji_server.tag.entity.Tag;
 import com.bj.ilji_server.schedule.dto.ScheduleUpdateRequest;
 import jakarta.persistence.*;
 import lombok.Builder;
@@ -11,13 +12,13 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "schedules") // 실제 데이터베이스 테이블 이름 지정
+@Table(name = "schedules")
 @Getter
-@NoArgsConstructor // JPA는 기본 생성자를 필요로 합니다.
+@NoArgsConstructor
 public class Schedule {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // Oracle의 GENERATED AS IDENTITY와 매핑
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "user_id", nullable = false)
@@ -26,14 +27,16 @@ public class Schedule {
     @Column(name = "calendar_id", nullable = false)
     private Long calendarId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tag_id")
+    private Tag tag;
+
     @Column(nullable = false)
     private String title;
 
     private String location;
 
-    private String tags;
-
-    @Lob // CLOB 타입과 매핑
+    @Lob
     private String description;
 
     @Column(name = "start_time", nullable = false)
@@ -43,25 +46,25 @@ public class Schedule {
     private LocalDateTime endTime;
 
     @Column(name = "is_all_day", nullable = false)
-    private boolean isAllDay; // NUMBER(1)은 boolean으로 매핑됩니다.
+    private boolean isAllDay;
 
     private String rrule;
 
-    @CreationTimestamp // Entity가 생성될 때 자동으로 현재 시간 저장
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp // Entity가 수정될 때 자동으로 현재 시간 저장
+    @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
     @Builder
-    public Schedule(Long userId, Long calendarId, String title, String location, String tags, String description, LocalDateTime startTime, LocalDateTime endTime, boolean isAllDay, String rrule) {
+    public Schedule(Long userId, Long calendarId, String title, String location, Tag tag, String description, LocalDateTime startTime, LocalDateTime endTime, boolean isAllDay, String rrule) {
         this.userId = userId;
         this.calendarId = calendarId;
         this.title = title;
         this.location = location;
-        this.tags = tags;
+        this.tag = tag;
         this.description = description;
         this.startTime = startTime;
         this.endTime = endTime;
@@ -69,11 +72,11 @@ public class Schedule {
         this.rrule = rrule;
     }
 
-    public void update(ScheduleUpdateRequest request) {
+    public void update(ScheduleUpdateRequest request, Tag tag) {
         this.calendarId = request.getCalendarId();
         this.title = request.getTitle();
         this.location = request.getLocation();
-        this.tags = request.getTags();
+        this.tag = tag;
         this.description = request.getDescription();
         this.startTime = request.getStartTime();
         this.endTime = request.getEndTime();
