@@ -12,7 +12,7 @@ public class ScheduleUpdateRequest {
     private Long calendarId;
     private String title;
     private String location;
-    private String tags;
+    private Long tagId; // "tags" -> "tagId"
     private String description;
     private LocalDateTime startTime;
     private LocalDateTime endTime;

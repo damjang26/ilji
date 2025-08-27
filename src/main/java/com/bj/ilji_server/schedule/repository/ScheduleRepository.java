@@ -7,6 +7,8 @@ import java.util.List;
 
 public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
 
-    // 'userId'를 기준으로 모든 일정을 찾는 메소드를 자동으로 생성해줍니다.
     List<Schedule> findByUserIdOrderByStartTimeAsc(Long userId);
+
+    // 여러 태그 ID에 해당하는 스케줄을 찾는 메서드 추가
+    List<Schedule> findByUserIdAndTagIdInOrderByStartTimeAsc(Long userId, List<Long> tagIds);
 }

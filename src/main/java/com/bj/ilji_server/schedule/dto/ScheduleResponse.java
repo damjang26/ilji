@@ -13,7 +13,7 @@ public class ScheduleResponse {
     private final Long calendarId;
     private final String title;
     private final String location;
-    private final String tags;
+    private final Long tagId;
     private final String description;
     private final LocalDateTime startTime;
     private final LocalDateTime endTime;
@@ -21,14 +21,13 @@ public class ScheduleResponse {
     private final String rrule;
     private final LocalDateTime createdAt;
 
-    // Entity를 DTO로 변환하는 생성자
     public ScheduleResponse(Schedule entity) {
         this.id = entity.getId();
         this.userId = entity.getUserId();
         this.calendarId = entity.getCalendarId();
         this.title = entity.getTitle();
         this.location = entity.getLocation();
-        this.tags = entity.getTags();
+        this.tagId = entity.getTag() != null ? entity.getTag().getId() : null;
         this.description = entity.getDescription();
         this.startTime = entity.getStartTime();
         this.endTime = entity.getEndTime();
