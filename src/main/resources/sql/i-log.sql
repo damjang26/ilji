@@ -9,7 +9,7 @@ CREATE TABLE i_log (
                        i_log_date DATE NOT NULL,
 
     -- 일기 본문, 3000자를 초과할 수 있으므로 CLOB 타입 사용
-                       content CLOB NOT NULL,
+                       content VARCHAR2(3000 CHAR) NOT NULL,
 
     -- 대표 이미지 URL, 사진이 없을 수도 있으므로 NULL 허용
                        img_url VARCHAR2(2048 CHAR),
@@ -22,6 +22,15 @@ CREATE TABLE i_log (
 
     -- 댓글 수, 기본값 0
                        comment_count NUMBER DEFAULT 0 NOT NULL,
+
+    -- 공개 여부
+                       visibility NUMBER(1) DEFAULT 0 NOT NULL,
+
+    -- 친구 태그 (user_id 나열)
+                       friend_tags VARCHAR2(2000),
+
+    -- 일반 태그 / 해시태그
+                       tags VARCHAR2(1000),
 
     -- 외래 키 제약 조건 설정 (users 테이블이 있다는 가정 하에)
                        CONSTRAINT fk_i_log_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
