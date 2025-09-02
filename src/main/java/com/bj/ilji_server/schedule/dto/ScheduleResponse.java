@@ -31,7 +31,8 @@ public class ScheduleResponse {
         this.description = entity.getDescription();
         this.startTime = entity.getStartTime();
         this.endTime = entity.getEndTime();
-        this.isAllDay = entity.isAllDay();
+        // [수정] Entity의 Integer(0/1) 값을 DTO의 boolean 값으로 변환합니다.
+        this.isAllDay = entity.getIsAllDay() != null && entity.getIsAllDay() == 1;
         this.rrule = entity.getRrule();
         this.createdAt = entity.getCreatedAt();
     }
