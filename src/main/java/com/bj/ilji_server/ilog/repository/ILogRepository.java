@@ -9,14 +9,14 @@ import java.util.List;
 public interface ILogRepository extends JpaRepository<ILog, Long>  {
 
     // userId 기준으로 일기 목록 찾기 (날짜 오름차순 정렬)
-    List<ILog> findByUserIdOrderByILogDateAsc(Long userId);
+    List<ILog> findByUserIdOrderByIlogDateAsc(Long userId);
 
     // 특정 날짜 일기 찾기
-    ILog findByUserIdAndILogDate(Long userId, LocalDate iLogDate);
+    ILog findByUserIdAndIlogDate(Long userId, LocalDate ilogDate);
 
     // 이전 일기 (현재 날짜보다 작은 것 중 제일 최근 것 하나)
-    ILog findFirstByUserIdAndILogDateLessThanOrderByILogDateDesc(Long userId, LocalDate iLogDate);
+    ILog findFirstByUserIdAndIlogDateLessThanOrderByIlogDateDesc(Long userId, LocalDate ilogDate);
 
     // 다음 일기 (현재 날짜보다 큰 것 중 제일 가까운 것 하나)
-    ILog findFirstByUserIdAndILogDateGreaterThanOrderByILogDateAsc(Long userId, LocalDate iLogDate);
+    ILog findFirstByUserIdAndIlogDateGreaterThanOrderByIlogDateAsc(Long userId, LocalDate ilogDate);
 }

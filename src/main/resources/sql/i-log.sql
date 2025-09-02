@@ -38,3 +38,5 @@ CREATE TABLE i_log (
     --  특정 사용자는 하루에 하나의 일기만 작성 가능하도록 UNIQUE 제약 조건 추가
                        CONSTRAINT uq_i_log_user_date UNIQUE (user_id, i_log_date)
 );
+
+DELETE USERS where ID = 3;

@@ -22,7 +22,7 @@ public class ILogService {
     // 특정 사용자의 일기 목록 조회
     @Transactional(readOnly = true)
     public List<ILogResponse> getLogsForUser(User user) {
-        List<ILog> logs = ilogRepository.findByUserIdOrderByILogDateAsc(user.getId());
+        List<ILog> logs = ilogRepository.findByUserIdOrderByIlogDateAsc(user.getId());
         return logs.stream()
                 .map(ILogResponse::fromEntity)
                 .collect(Collectors.toList());
@@ -39,7 +39,7 @@ public class ILogService {
     // 특정 날짜 일기 조회
     @Transactional(readOnly = true)
     public ILogResponse getLogByDate(User user, LocalDate date) {
-        ILog log = ilogRepository.findByUserIdAndILogDate(user.getId(), date);
+        ILog log = ilogRepository.findByUserIdAndIlogDate(user.getId(), date);
         if (log == null) {
             return null;
         }
@@ -49,7 +49,7 @@ public class ILogService {
     // 이전 일기 조회
     @Transactional(readOnly = true)
     public ILogResponse getPreviousLog(User user, LocalDate date) {
-        ILog log = ilogRepository.findFirstByUserIdAndILogDateLessThanOrderByILogDateDesc(user.getId(), date);
+        ILog log = ilogRepository.findFirstByUserIdAndIlogDateLessThanOrderByIlogDateDesc(user.getId(), date);
         if (log == null) {
             return null;
         }
@@ -59,7 +59,7 @@ public class ILogService {
     // 다음 일기 조회
     @Transactional(readOnly = true)
     public ILogResponse getNextLog(User user, LocalDate date) {
-        ILog log = ilogRepository.findFirstByUserIdAndILogDateGreaterThanOrderByILogDateAsc(user.getId(), date);
+        ILog log = ilogRepository.findFirstByUserIdAndIlogDateGreaterThanOrderByIlogDateAsc(user.getId(), date);
         if (log == null) {
             return null;
         }

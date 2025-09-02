@@ -25,7 +25,7 @@ public class ILogCreateRequest {
     public ILog toEntity(User user) {
         return ILog.builder()
                 .user(user)
-                .iLogDate(this.iLogDate)
+                .ilogDate(this.iLogDate)
                 .content(this.content)
                 .imgUrl(this.imgUrl)
                 .visibility(this.visibility)

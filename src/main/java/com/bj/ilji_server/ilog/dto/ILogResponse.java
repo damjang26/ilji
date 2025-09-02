@@ -30,7 +30,7 @@ public class ILogResponse {
         return ILogResponse.builder()
                 .id(ilog.getId())
                 .userId(ilog.getUser().getId()) // User 객체 대신 ID만
-                .iLogDate(ilog.getILogDate())
+                .iLogDate(ilog.getIlogDate())
                 .content(ilog.getContent())
                 .imgUrl(ilog.getImgUrl())
                 .visibility(ilog.getVisibility())

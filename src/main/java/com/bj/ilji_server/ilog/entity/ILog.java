@@ -41,7 +41,7 @@ public class ILog {
     private User user;
 
     @Column(name = "i_log_date", nullable = false)
-    private LocalDate iLogDate;
+    private LocalDate ilogDate;
 
     // DDL이 VARCHAR2(3000)이므로 @Lob 제거, length 명시
     @Column(name = "content", nullable = false, length = 3000)
@@ -77,9 +77,9 @@ public class ILog {
     private String tags;
 
     @Builder
-    public ILog(User user, LocalDate iLogDate, String content, String imgUrl, Visibility visibility, String friendTags, String tags) {
+    public ILog(User user, LocalDate ilogDate, String content, String imgUrl, Visibility visibility, String friendTags, String tags) {
         this.user = user;
-        this.iLogDate = iLogDate;
+        this.ilogDate = ilogDate;
         this.content = content;
         this.imgUrl = imgUrl;
         if (visibility != null) { // Builder로 값이 주입된 경우에만 덮어쓰기
