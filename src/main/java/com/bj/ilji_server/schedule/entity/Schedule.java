@@ -48,7 +48,7 @@ public class Schedule {
     private LocalDateTime endTime;
 
     @Column(name = "is_all_day", nullable = false)
-    private boolean isAllDay;
+    private Integer isAllDay; // DB의 NUMBER(1) 타입과 일치시키기 위해 Integer로 변경
 
     private String rrule;
 
@@ -61,7 +61,7 @@ public class Schedule {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Schedule(Long userId, Long calendarId, String title, String location, Tag tag, String description, LocalDateTime startTime, LocalDateTime endTime, boolean isAllDay, String rrule) {
+    public Schedule(Long userId, Long calendarId, String title, String location, Tag tag, String description, LocalDateTime startTime, LocalDateTime endTime, Integer isAllDay, String rrule) {
         this.userId = userId;
         this.calendarId = calendarId;
         this.title = title;
@@ -82,7 +82,8 @@ public class Schedule {
         this.description = request.getDescription();
         this.startTime = request.getStartTime();
         this.endTime = request.getEndTime();
-        this.isAllDay = request.isAllDay();
+        // DTO의 boolean 값을 1 또는 0으로 변환하여 저장
+        this.isAllDay = request.isAllDay() ? 1 : 0;
         this.rrule = request.getRrule();
     }
 }
