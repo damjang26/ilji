@@ -13,7 +13,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/ilogs")
+@RequestMapping("/api/i-log")
 @RequiredArgsConstructor
 public class ILogController {
 

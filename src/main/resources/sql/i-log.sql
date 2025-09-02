@@ -8,7 +8,7 @@ CREATE TABLE i_log (
     -- 일기 날짜, "YYYY-MM-DD" 형식을 저장하기에 최적화된 타입
                        i_log_date DATE NOT NULL,
 
-    -- 일기 본문, 3000자를 초과할 수 있으므로 CLOB 타입 사용
+    -- 일기 본문
                        content VARCHAR2(3000 CHAR) NOT NULL,
 
     -- 대표 이미지 URL, 사진이 없을 수도 있으므로 NULL 허용
@@ -38,5 +38,3 @@ CREATE TABLE i_log (
     --  특정 사용자는 하루에 하나의 일기만 작성 가능하도록 UNIQUE 제약 조건 추가
                        CONSTRAINT uq_i_log_user_date UNIQUE (user_id, i_log_date)
 );
-
-DELETE USERS where ID = 3;
