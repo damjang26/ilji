@@ -19,14 +19,11 @@ import net.fortuna.ical4j.model.Period;
 import net.fortuna.ical4j.model.component.VEvent;
 import net.fortuna.ical4j.model.property.RRule;
 
+import java.time.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import java.text.ParseException;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 
 @Service
@@ -185,6 +182,7 @@ public class ScheduleService {
         if (t instanceof java.time.LocalDateTime ldt) return ldt;
         if (t instanceof java.time.Instant inst) return LocalDateTime.ofInstant(inst, zone);
         if (t instanceof java.time.LocalDate ld) return ld.atStartOfDay(); // 종일 이벤트
+
         throw new IllegalArgumentException("Unsupported temporal type: " + t.getClass());
     }
 
