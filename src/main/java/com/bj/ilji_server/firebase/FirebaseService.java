@@ -56,28 +56,24 @@ public class FirebaseService {
         return "https://firebasestorage.googleapis.com/v0/b/" + bucketName + "/o/" + fileName.replaceAll("/", "%2F") + "?alt=media";
     }
 
-    public boolean deleteFile(String fileUrl) {
-        try {
-            // 예: https://firebasestorage.googleapis.com/v0/b/[bucket]/o/ilog-images%2Fabcd_uuid.png?alt=media
-            // → filePath = "ilog-images/abcd_uuid.png"
+    public void deleteFile(String fileUrl) throws IOException {
+        // 예: https://firebasestorage.googleapis.com/v0/b/[bucket]/o/ilog-images%2Fabcd_uuid.png?alt=media
+        String prefix = "https://firebasestorage.googleapis.com/v0/b/" + bucketName + "/o/";
+        String suffix = "?alt=media";
 
-            String prefix = "https://firebasestorage.googleapis.com/v0/b/" + bucketName + "/o/";
-            String suffix = "?alt=media";
+        if (fileUrl.startsWith(prefix) && fileUrl.endsWith(suffix)) {
+            String filePathEncoded = fileUrl.substring(prefix.length(), fileUrl.length() - suffix.length());
+            String filePath = java.net.URLDecoder.decode(filePathEncoded, java.nio.charset.StandardCharsets.UTF_8);
 
-            if (fileUrl.startsWith(prefix) && fileUrl.endsWith(suffix)) {
-                String filePathEncoded = fileUrl.substring(prefix.length(), fileUrl.length() - suffix.length());
-                // URL 인코딩된 경로를 다시 디코딩
-                String filePath = java.net.URLDecoder.decode(filePathEncoded, java.nio.charset.StandardCharsets.UTF_8);
-
-                // Firebase Storage에서 파일 삭제
-                return storage.delete(BlobId.of(bucketName, filePath));
-            } else {
-                throw new IllegalArgumentException("잘못된 Firebase Storage URL 형식입니다: " + fileUrl);
+            // Firebase Storage에서 파일 삭제 시도
+            boolean deleted = storage.delete(BlobId.of(bucketName, filePath));
+            if (!deleted) {
+                throw new IOException("Firebase Storage에서 파일 삭제 실패: " + filePath);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
+        } else {
+            throw new IllegalArgumentException("잘못된 Firebase Storage URL 형식입니다: " + fileUrl);
         }
     }
+
 
 }

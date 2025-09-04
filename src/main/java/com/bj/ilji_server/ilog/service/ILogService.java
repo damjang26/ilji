@@ -107,7 +107,7 @@ public class ILogService {
             throw new IllegalArgumentException("권한이 없습니다.");
         }
 
-        // ✅ 이미지 삭제 (실패 시 예외 발생 → 트랜잭션 롤백)
+        // ✅ 이미지 삭제 (실패 시 예외 → 트랜잭션 롤백)
         if (log.getImgUrl() != null && !log.getImgUrl().isBlank()) {
             try {
                 List<String> imageUrls = objectMapper.readValue(
@@ -116,14 +116,15 @@ public class ILogService {
                 );
 
                 for (String url : imageUrls) {
-                    firebaseService.deleteFile(url); // 실패하면 IOException 발생
+                    firebaseService.deleteFile(url); // 이제 실패하면 IOException 던짐
                 }
             } catch (Exception e) {
                 throw new RuntimeException("이미지 삭제에 실패했습니다. 일기 삭제를 중단합니다.", e);
             }
         }
 
-        // ✅ 이미지 삭제가 모두 성공한 경우만 DB에서 삭제
+        // ✅ 모든 이미지 삭제 성공 후 DB 삭제
         ilogRepository.deleteById(logId);
     }
+
 }
