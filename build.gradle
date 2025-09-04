@@ -31,10 +31,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security' // (권장) CORS/보호자원/필터 구성용
 
     /* --- Oracle JDBC + Wallet (버전 동일 유지) --- */
-    runtimeOnly 'com.oracle.database.jdbc:ojdbc11:23.5.0.24.07'
-    runtimeOnly 'com.oracle.database.security:oraclepki:23.5.0.24.07'   // Wallet 필수
-    runtimeOnly 'com.oracle.database.security:osdt_core:23.5.0.24.07'   // Wallet 필수
-    runtimeOnly 'com.oracle.database.security:osdt_cert:23.5.0.24.07'   // Wallet 필수
+    implementation 'com.oracle.database.jdbc:ojdbc11:23.5.0.24.07'
+    implementation 'com.oracle.database.security:oraclepki:23.5.0.24.07'   // Wallet 필수
+    implementation 'com.oracle.ojdbc:osdt_core:19.3.0.0'
+    implementation 'com.oracle.database.security:osdt_cert:21.10.0.0'
 
     /* --- Google ID Token 검증 (서버에서 구글 서명/aud/iss 검증) --- */
     implementation 'com.google.api-client:google-api-client:2.6.0'
@@ -56,13 +56,16 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
+    /* --- iCalendar(RRULE) 파싱 --- 반복 주기 관리용 라이브러리 */
+    implementation 'org.mnode.ical4j:ical4j:4.1.1'
+
     /*
    •	spring-boot-starter-security: CORS 허용, 인증 필터, 보호 자원 설정을 깔끔하게 하려면 있는 게 편함 (간단히 모두 permitAll로 시작해도 OK)
    •	Google 검증 라이브러리: 프론트에서 받은 id_token을 서버에서 aud/iss/exp 등 진짜 토큰인지 검증하려고 넣었습니다.
    •	JJWT: 우리 서비스용 액세스 토큰 발급(혹은 세션 대신 쿠키+토큰 전략)할 때 사용. 쿠키 세션만 쓸 거면 제거해도 됩니다.
    •	Oracle Wallet 세트: 버전을 모두 동일하게 유지하는 게 중요해요(지금처럼 23.5.0.24.07로 통일 )
     */
-
+    implementation 'com.google.firebase:firebase-admin:9.2.0'
 
 }
 
