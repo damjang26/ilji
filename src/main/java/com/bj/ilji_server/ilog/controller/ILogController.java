@@ -5,10 +5,13 @@ import com.bj.ilji_server.ilog.dto.ILogResponse;
 import com.bj.ilji_server.ilog.service.ILogService;
 import com.bj.ilji_server.user.entity.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -31,13 +34,16 @@ public class ILogController {
     // ---------------------------------------------------
     // 2️⃣ 일기 등록
     // ---------------------------------------------------
-    @PostMapping
-    public ResponseEntity<ILogResponse> createLog(
-            @AuthenticationPrincipal User user,
-            @RequestBody ILogCreateRequest requestDto) {
-
-        ILogResponse newLog = ilogService.createLog(user, requestDto);
-        return ResponseEntity.ok(newLog);
+    // ✅ [수정] 이미지(Multipart)와 일기 데이터(JSON)를 함께 받도록 변경
+    @PostMapping(consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
+    public ResponseEntity<ILogResponse> createIlog(
+            // "images"라는 이름의 파일 파트를 받습니다. 파일이 없어도 오류가 나지 않도록 required = false 설정
+            @RequestPart(value = "images", required = false) List<MultipartFile> images,
+            // "request"라는 이름의 JSON 데이터 파트를 받습니다.
+            @RequestPart("request") ILogCreateRequest request
+    ) throws IOException {
+        // 서비스 레이어에 이미지와 DTO를 모두 전달합니다.
+        return ResponseEntity.ok(ilogService.createIlog(request, images));
     }
 
     // ---------------------------------------------------
