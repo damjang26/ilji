@@ -83,17 +83,12 @@ public class UserProfile {
         this.nickname = request.getNickname();
         this.birthdate = request.getBirthdate();
         this.phoneNumber = request.getPhoneNumber();
+        this.profileImage = request.getProfileImage(); // 누락된 프로필 이미지 업데이트 추가
         this.bannerImage = request.getBannerImage();
         this.gender = request.getGender();
         this.region = request.getRegion();
         this.bio = request.getBio();
-//        this.accountPrivate = request.isPrivate(); // DTO와 프론트엔드에서도 필드명을 통일해야 합니다.
-
-        // [로그 3] DB에 저장되기 직전, 실제 필드 값이 바뀌는 순간 확인
-        System.out.println("✅ [Entity] 값 변경 전: " + this.accountPrivate + " | DTO에서 받은 값: " + request.isPrivate());
         this.accountPrivate = request.isPrivate();
-        System.out.println("✅ [Entity] 값 변경 후: " + this.accountPrivate);
-
         this.interests = request.getInterests();
     }
 }

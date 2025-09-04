@@ -46,11 +46,16 @@ public class FirebaseService {
         // 파일 이름 중복을 피하기 위해 UUID를 사용하고, 지정된 경로에 저장합니다.
         String fileName = path + "/" + UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
 
+        System.out.println("[Firebase]   - Firebase Storage 객체 존재 여부: " + (this.storage != null));
+        System.out.println("[Firebase]   - 파일 업로드 실행. 버킷: " + bucketName + ", 파일명: " + fileName);
+
         BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, fileName)
                 .setContentType(file.getContentType())
                 .build();
 
-        storage.create(blobInfo, file.getBytes());
+        storage.create(blobInfo, file.getBytes()); // 이 라인에서 실제 업로드 발생
+
+        System.out.println("[Firebase]   - 파일 업로드 API 호출 성공.");
 
         // 업로드된 파일의 공개 URL을 생성하여 반환합니다.
         return "https://firebasestorage.googleapis.com/v0/b/" + bucketName + "/o/" + fileName.replaceAll("/", "%2F") + "?alt=media";
