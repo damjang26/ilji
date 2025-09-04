@@ -1,15 +1,21 @@
 package com.bj.ilji_server.ilog.service;
 
+import com.bj.ilji_server.firebase.FirebaseService;
 import com.bj.ilji_server.ilog.dto.ILogCreateRequest;
 import com.bj.ilji_server.ilog.dto.ILogResponse;
 import com.bj.ilji_server.ilog.entity.ILog;
 import com.bj.ilji_server.ilog.repository.ILogRepository;
 import com.bj.ilji_server.user.entity.User;
+import com.bj.ilji_server.user.repository.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,6 +24,10 @@ import java.util.stream.Collectors;
 public class ILogService {
 
     private final ILogRepository ilogRepository;
+    // ✅ [추가] 의존성 주입: User 정보 조회, Firebase 연동, JSON 변환을 위해 추가합니다.
+    private final UserRepository userRepository;
+    private final FirebaseService firebaseService;
+    private final ObjectMapper objectMapper;
 
     // 특정 사용자의 일기 목록 조회
     @Transactional(readOnly = true)
@@ -28,12 +38,32 @@ public class ILogService {
                 .collect(Collectors.toList());
     }
 
-    // 일기 등록
+    // ✅ [수정] 일기 등록 메서드를 이미지 파일(MultipartFile)을 함께 처리하도록 변경합니다.
     @Transactional
-    public ILogResponse createLog(User user, ILogCreateRequest requestDto) {
-        ILog newLog = requestDto.toEntity(user);
-        ILog savedLog = ilogRepository.save(newLog);
-        return ILogResponse.fromEntity(savedLog);
+    public ILogResponse createIlog(ILogCreateRequest request, List<MultipartFile> images) throws IOException {
+        // 1. 이미지 업로드 및 URL 생성
+        List<String> imageUrls = new ArrayList<>();
+        if (images != null && !images.isEmpty()) {
+            for (MultipartFile image : images) {
+                // FirebaseService를 사용해 이미지를 업로드하고 URL을 받습니다.
+                String imageUrl = firebaseService.uploadFile(image, "ilog-images");
+                imageUrls.add(imageUrl);
+            }
+        }
+
+        // 2. 이미지 URL 리스트를 JSON 문자열로 변환하여 DTO에 설정
+        String imageUrlsJson = objectMapper.writeValueAsString(imageUrls);
+        request.setImgUrl(imageUrlsJson);
+
+        // 3. DTO를 Entity로 변환하여 DB에 저장
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + request.getUserId()));
+
+        ILog newIlog = request.toEntity(user);
+        ILog savedIlog = ilogRepository.save(newIlog);
+
+        // 4. 저장된 Entity를 Response DTO로 변환하여 반환
+        return ILogResponse.fromEntity(savedIlog);
     }
 
     // 특정 날짜 일기 조회
