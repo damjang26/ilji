@@ -13,7 +13,7 @@ import java.util.Collections;
 @Configuration
 public class GoogleAuthConfig {
 
-    @Value("${google.client.ids}")
+    @Value("${google.client.id}")
     private String googleClientIds;
 
     @Bean
