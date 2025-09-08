@@ -1,12 +1,14 @@
 package com.bj.ilji_server.user_profile.service;
 
 import com.bj.ilji_server.firebase.FirebaseService;
+import com.bj.ilji_server.user.constant.UserProfileConstant;
 import com.bj.ilji_server.user.entity.User;
 import com.bj.ilji_server.user.repository.UserRepository;
 import com.bj.ilji_server.user_profile.dto.UserProfileResponse;
 import com.bj.ilji_server.user_profile.dto.UserProfileUpdateRequest;
 import com.bj.ilji_server.user_profile.entity.UserProfile;
 import com.bj.ilji_server.user_profile.repository.UserProfileRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,70 +28,85 @@ public class UserProfileService {
         return url != null && url.startsWith("https://firebasestorage.googleapis.com/");
     }
 
-    @Transactional
-    public UserProfileResponse getUserProfile(Long userId) {
-        UserProfile profile = findOrCreateProfile(userId);
+    @Transactional(readOnly = true) // 읽기 전용 트랜잭션으로 성능 최적화
+    public UserProfileResponse getUserProfile(User incompleteUser) {
+        // 컨트롤러에서 받은 불완전한 User 객체의 email을 사용하여 DB에서 완전한 User 정보를 다시 조회합니다.
+        User user = userRepository.findByEmail(incompleteUser.getEmail())
+                .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다. email=" + incompleteUser.getEmail()));
+
+        UserProfile profile = userProfileRepository.findById(user.getId())
+                .orElseGet(() -> createNewProfile(user)); // 프로필이 없으면 새로 생성
+
         return UserProfileResponse.from(profile);
     }
 
     @Transactional
-    public void updateUserProfile(Long userId,
-                                  UserProfileUpdateRequest request,
-                                  MultipartFile profileImage,
-                                  MultipartFile bannerImage,
-                                  String profileImageUrl,
-                                  String bannerImageUrl
-    ) throws IOException {
-        System.out.println("[Service] updateUserProfile 진입");
-        UserProfile userProfile = findOrCreateProfile(userId);
+    public UserProfile updateUserProfile(User incompleteUser,
+                                         UserProfileUpdateRequest request,
+                                         MultipartFile profileImage,
+                                         MultipartFile bannerImage,
+                                         boolean revertProfileImage,
+                                         boolean revertBannerImage)
+            throws IOException {
 
-        // === 1. 프로필 이미지 처리 ===
-        String finalProfileUrl = userProfile.getProfileImage();
-        if (profileImage != null && !profileImage.isEmpty()) {
-            if (isFirebaseUrl(finalProfileUrl)) {
-                firebaseService.deleteFile(finalProfileUrl);
-            }
-            finalProfileUrl = firebaseService.uploadFile(profileImage, "profile_images");
-            System.out.println("[Service] 새 프로필 이미지 업로드: " + finalProfileUrl);
-        } else if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
-            if (isFirebaseUrl(finalProfileUrl)) {
-                firebaseService.deleteFile(finalProfileUrl);
-            }
-            finalProfileUrl = profileImageUrl; // 기본 이미지 URL로 교체
-            System.out.println("[Service] 기본 프로필 이미지로 복원: " + finalProfileUrl);
+        // 프로필 조회와 마찬가지로, 완전한 User 정보를 먼저 조회합니다.
+        User user = userRepository.findByEmail(incompleteUser.getEmail())
+                .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다. email=" + incompleteUser.getEmail()));
+
+        // 1. 쓰기 트랜잭션 내에서 엔티티를 조회하거나 새로 생성합니다.
+        UserProfile userProfile = userProfileRepository.findById(user.getId())
+                .orElseGet(() -> createNewProfile(user));
+
+        // 2. 프로필 이미지 업데이트 로직
+        if (revertProfileImage) {
+            // 기본 이미지로 되돌리기
+            deleteImageFromFirebase(userProfile.getProfileImage());
+            userProfile.setProfileImage(UserProfileConstant.DEFAULT_PROFILE_IMAGE_URL);
+        } else if (profileImage != null && !profileImage.isEmpty()) {
+            // 새 이미지로 교체
+            deleteImageFromFirebase(userProfile.getProfileImage());
+            String newProfileImageUrl = firebaseService.uploadFile(profileImage, "profile_images");
+            userProfile.setProfileImage(newProfileImageUrl);
         }
 
-        // === 2. 배너 이미지 처리 ===
-        String finalBannerUrl = userProfile.getBannerImage();
-        if (bannerImage != null && !bannerImage.isEmpty()) {
-            if (isFirebaseUrl(finalBannerUrl)) {
-                firebaseService.deleteFile(finalBannerUrl);
-            }
-            finalBannerUrl = firebaseService.uploadFile(bannerImage, "banner_images");
-            System.out.println("[Service] 새 배너 이미지 업로드: " + finalBannerUrl);
-        } else if (bannerImageUrl != null && !bannerImageUrl.isEmpty()) {
-            if (isFirebaseUrl(finalBannerUrl)) {
-                firebaseService.deleteFile(finalBannerUrl);
-            }
-            finalBannerUrl = bannerImageUrl; // 기본 배너 URL
-            System.out.println("[Service] 기본 배너 이미지로 복원: " + finalBannerUrl);
+        // 3. 배너 이미지 업데이트 로직
+        if (revertBannerImage) {
+            // 기본 이미지로 되돌리기
+            deleteImageFromFirebase(userProfile.getBannerImage());
+            userProfile.setBannerImage(UserProfileConstant.DEFAULT_BANNER_IMAGE_URL);
+        } else if (bannerImage != null && !bannerImage.isEmpty()) {
+            // 새 이미지로 교체
+            deleteImageFromFirebase(userProfile.getBannerImage());
+            String newBannerImageUrl = firebaseService.uploadFile(bannerImage, "banner_images");
+            userProfile.setBannerImage(newBannerImageUrl);
         }
 
-        // === 3. DTO 업데이트 및 DB 저장 ===
-        request.setProfileImage(finalProfileUrl);
-        request.setBannerImage(finalBannerUrl);
-
+        // 4. 텍스트 정보 업데이트
         userProfile.update(request);
-        System.out.println("[Service] DB 업데이트 완료");
+
+        // 5. 변경 사항을 DB에 반영 (JPA Dirty-checking에 의해 트랜잭션 커밋 시 자동 반영)
+        // 명시적으로 save를 호출할 필요는 없지만, 가독성이나 즉시 반영을 위해 saveAndFlush를 사용할 수 있습니다.
+        return userProfileRepository.saveAndFlush(userProfile);
     }
 
-    private UserProfile findOrCreateProfile(Long userId) {
-        return userProfileRepository.findById(userId)
-                .orElseGet(() -> {
-                    User user = userRepository.findById(userId)
-                            .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다. id=" + userId));
-                    UserProfile newProfile = UserProfile.builder().user(user).build();
-                    return userProfileRepository.save(newProfile);
-                });
+    /**
+     * Firebase Storage에 저장된 이미지를 삭제합니다.
+     * URL이 유효한 Firebase URL인 경우에만 삭제를 시도합니다.
+     * @param fileUrl 삭제할 파일의 URL
+     */
+    private void deleteImageFromFirebase(String fileUrl) throws IOException {
+        if (isFirebaseUrl(fileUrl)) {
+            firebaseService.deleteFile(fileUrl);
+        }
+    }
+
+    // 새로운 프로필을 생성하는 로직
+    private UserProfile createNewProfile(User user) {
+        UserProfile newProfile = UserProfile.builder()
+                .user(user)
+                .profileImage(UserProfileConstant.DEFAULT_PROFILE_IMAGE_URL)
+                .bannerImage(UserProfileConstant.DEFAULT_BANNER_IMAGE_URL)
+                .build();
+        return userProfileRepository.save(newProfile);
     }
 }

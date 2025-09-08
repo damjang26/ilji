@@ -4,65 +4,47 @@ import com.bj.ilji_server.user.entity.User;
 import com.bj.ilji_server.user_profile.dto.UserProfileResponse;
 import com.bj.ilji_server.user_profile.dto.UserProfileUpdateRequest;
 import com.bj.ilji_server.user_profile.service.UserProfileService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-
 @RestController
-@RequestMapping("/api/profiles")
+@Slf4j
+@RequestMapping("/api/user/profile")
 @RequiredArgsConstructor
 public class UserProfileController {
 
     private final UserProfileService userProfileService;
+    private final ObjectMapper objectMapper;
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<UserProfileResponse> getUserProfile(@PathVariable Long userId) {
-        UserProfileResponse response = userProfileService.getUserProfile(userId);
+    @GetMapping
+    public ResponseEntity<UserProfileResponse> getUserProfile(@AuthenticationPrincipal User user) {
+        UserProfileResponse response = userProfileService.getUserProfile(user);
         return ResponseEntity.ok(response);
     }
 
-    @PutMapping(
-            value = "/user/{userId}",
-            consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_JSON_VALUE}
-    )
-    public ResponseEntity<Void> updateUserProfile(
-            @PathVariable Long userId,
-            @AuthenticationPrincipal User currentUser,
-            @RequestPart("request") UserProfileUpdateRequest request,
-            @RequestPart(value = "profileImage", required = false) MultipartFile profileImage,
-            @RequestPart(value = "bannerImage", required = false) MultipartFile bannerImage,
-            // ✅ 기본 이미지 복원 시 URL 값도 받을 수 있도록 추가
-            @RequestPart(value = "profileImageUrl", required = false) String profileImageUrl,
-            @RequestPart(value = "bannerImageUrl", required = false) String bannerImageUrl
-    ) throws IOException {
+    @PutMapping
+    public ResponseEntity<String> updateUserProfile(@AuthenticationPrincipal User user,
+                                                    @RequestPart("request") String requestStr,
+                                                    @RequestPart(value = "profileImage", required = false) MultipartFile profileImage,
+                                                    @RequestPart(value = "bannerImage", required = false) MultipartFile bannerImage,
+                                                    @RequestParam(value = "revertProfileImage", defaultValue = "false") boolean revertProfileImage,
+                                                    @RequestParam(value = "revertBannerImage", defaultValue = "false") boolean revertBannerImage) {
+        try {
+            UserProfileUpdateRequest request = objectMapper.readValue(requestStr, UserProfileUpdateRequest.class);
 
-        // --- 디버깅 로그 ---
-        System.out.println("[Controller] updateUserProfile 호출");
-        System.out.println("  - profileImage 수신 여부: " + (profileImage != null && !profileImage.isEmpty()));
-        System.out.println("  - bannerImage 수신 여부: " + (bannerImage != null && !bannerImage.isEmpty()));
-        System.out.println("  - profileImageUrl 값: " + profileImageUrl);
-        System.out.println("  - bannerImageUrl 값: " + bannerImageUrl);
+            userProfileService.updateUserProfile(user, request, profileImage, bannerImage, revertProfileImage, revertBannerImage);
 
-        // 보안 체크
-        if (!userId.equals(currentUser.getId())) {
-            return ResponseEntity.status(403).build();
+            return ResponseEntity.ok("프로필이 성공적으로 업데이트되었습니다.");
+        } catch (Exception e) {
+            // 어떤 오류가 발생하는지 정확히 파악하기 위해 전체 스택 트레이스를 로그로 남깁니다.
+            log.error("프로필 업데이트 중 심각한 오류 발생", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("프로필 업데이트 중 서버 오류가 발생했습니다.");
         }
-
-        // 서비스 호출
-        userProfileService.updateUserProfile(
-                userId,
-                request,
-                profileImage,
-                bannerImage,
-                profileImageUrl,
-                bannerImageUrl
-        );
-
-        return ResponseEntity.ok().build();
     }
 }
