@@ -20,8 +20,13 @@ public class TagController {
     private final TagService tagService;
 
     @GetMapping
-    public ResponseEntity<List<TagResponse>> getUserTags(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(tagService.getUserTags(user));
+    public ResponseEntity<List<TagResponse>> getTags(
+            @RequestParam(name = "userId", required = false) Long ownerId,
+            @AuthenticationPrincipal User viewer) {
+
+        Long targetUserId = (ownerId != null) ? ownerId : viewer.getId();
+        List<TagResponse> tags = tagService.getVisibleTags(targetUserId, viewer);
+        return ResponseEntity.ok(tags);
     }
 
     @PostMapping
