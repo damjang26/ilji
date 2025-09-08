@@ -67,6 +67,8 @@ dependencies {
     */
     implementation 'com.google.firebase:firebase-admin:9.2.0'
 
+//    중복 알림 방지
+    implementation 'commons-codec:commons-codec'
 }
 
 tasks.named('test') {
