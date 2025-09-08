@@ -104,4 +104,20 @@ public class ILog {
     public void decreaseComment() {
         this.commentCount = Math.max(0, this.commentCount - 1);
     }
+
+    /**
+     * 일기 수정 시, 필드를 업데이트하는 편의 메서드
+     * @param content 수정될 내용
+     * @param imgUrl 수정될 이미지 URL 목록 (JSON 문자열)
+     * @param visibility 수정될 공개 범위 (int)
+     */
+    public void update(String content, String imgUrl, int visibility) {
+        this.content = content;
+        this.imgUrl = imgUrl;
+        // int 값을 Enum으로 안전하게 변환
+        if (visibility >= 0 && visibility < Visibility.values().length) {
+            this.visibility = Visibility.values()[visibility];
+        }
+        // 그 외의 값이 들어오면 기존 값을 유지하거나 기본값으로 설정할 수 있으나, 여기서는 유효한 값만 처리
+    }
 }

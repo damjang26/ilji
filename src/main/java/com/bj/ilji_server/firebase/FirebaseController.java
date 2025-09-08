@@ -27,4 +27,6 @@ public class FirebaseController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("파일 업로드 실패: " + e.getMessage());
         }
     }
+
+
 }
