@@ -1,5 +1,6 @@
 package com.bj.ilji_server.user_profile.service;
 
+import com.bj.ilji_server.user.dto.UserSearchResponse;
 import com.bj.ilji_server.user.entity.User;
 import com.bj.ilji_server.user.repository.UserRepository;
 import com.bj.ilji_server.user_profile.dto.UserProfileResponse;
@@ -10,12 +11,23 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class UserProfileService {
 
     private final UserProfileRepository userProfileRepository;
     private final UserRepository userRepository;
+
+    @Transactional(readOnly = true)
+    public List<UserSearchResponse> searchUsers(String query, User currentUser) {
+        List<UserProfile> userProfiles = userProfileRepository.searchByEmailOrNickname(query, currentUser.getId());
+        return userProfiles.stream()
+                .map(UserSearchResponse::from)
+                .collect(Collectors.toList());
+    }
 
     @Transactional
     public UserProfileResponse getUserProfile(Long userId) {
@@ -26,8 +38,6 @@ public class UserProfileService {
     @Transactional
     public void updateUserProfile(Long userId, UserProfileUpdateRequest request) {
         System.out.println("✅ [Service] 업데이트 처리 시작 >> accountPrivate: " + request.isPrivate());
-
-
         UserProfile userProfile = findOrCreateProfile(userId);
         userProfile.update(request);
     }

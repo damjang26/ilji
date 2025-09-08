@@ -31,6 +31,10 @@ public class Tag {
     @Column(nullable = false, length = 50)
     private String color;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TagVisibility visibility = TagVisibility.PRIVATE;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
