@@ -10,5 +10,5 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
     List<Schedule> findByUserIdOrderByStartTimeAsc(Long userId);
 
     // 여러 태그 ID에 해당하는 스케줄을 찾는 메서드 추가
-    List<Schedule> findByUserIdAndTagIdInOrderByStartTimeAsc(Long userId, List<Long> tagIds);
+    List<Schedule> findByUserIdAndTag_IdInOrderByStartTimeAsc(Long userId, List<Long> tagIds);
 }

@@ -76,7 +76,7 @@ public class ScheduleService {
 
 
 
-            schedules = scheduleRepository.findByUserIdAndTagIdInOrderByStartTimeAsc(user.getId(), tagIds);
+            schedules = scheduleRepository.findByUserIdAndTag_IdInOrderByStartTimeAsc(user.getId(), tagIds);
         }
         return schedules.stream()
                 .map(ScheduleResponse::new)

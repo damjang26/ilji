@@ -7,6 +7,7 @@ import com.bj.ilji_server.ilog.entity.ILog;
 import com.bj.ilji_server.ilog.repository.ILogRepository;
 import com.bj.ilji_server.user.entity.User;
 import com.bj.ilji_server.user.repository.UserRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -46,7 +47,7 @@ public class ILogService {
         if (images != null && !images.isEmpty()) {
             for (MultipartFile image : images) {
                 // FirebaseService를 사용해 이미지를 업로드하고 URL을 받습니다.
-                String imageUrl = firebaseService.uploadFile(image, "ilog-images");
+                String imageUrl = firebaseService.uploadFile(image, "ilog");
                 imageUrls.add(imageUrl);
             }
         }
@@ -105,6 +106,25 @@ public class ILogService {
         if (!log.getUser().getId().equals(user.getId())) {
             throw new IllegalArgumentException("권한이 없습니다.");
         }
+
+        // ✅ 이미지 삭제 (실패 시 예외 → 트랜잭션 롤백)
+        if (log.getImgUrl() != null && !log.getImgUrl().isBlank()) {
+            try {
+                List<String> imageUrls = objectMapper.readValue(
+                        log.getImgUrl(),
+                        new TypeReference<List<String>>() {}
+                );
+
+                for (String url : imageUrls) {
+                    firebaseService.deleteFile(url); // 이제 실패하면 IOException 던짐
+                }
+            } catch (Exception e) {
+                throw new RuntimeException("이미지 삭제에 실패했습니다. 일기 삭제를 중단합니다.", e);
+            }
+        }
+
+        // ✅ 모든 이미지 삭제 성공 후 DB 삭제
         ilogRepository.deleteById(logId);
     }
+
 }
