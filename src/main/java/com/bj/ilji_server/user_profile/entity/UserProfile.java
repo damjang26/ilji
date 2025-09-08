@@ -68,7 +68,6 @@ public class UserProfile {
 
     @Builder
     public UserProfile(User user, String profileImage, String bannerImage) {
-        this.id = user.getId(); // @MapsId를 사용하므로 User의 ID를 직접 설정
         this.user = user;
         this.profileImage = profileImage;
         this.bannerImage = bannerImage;
