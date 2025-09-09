@@ -4,6 +4,7 @@ import com.bj.ilji_server.friend.dto.FriendshipStatus;
 import com.bj.ilji_server.friend.service.FriendService;
 import com.bj.ilji_server.tag.dto.TagCreateRequest;
 import com.bj.ilji_server.tag.dto.TagResponse;
+import com.bj.ilji_server.tag.dto.TagUpdateRequest;
 import com.bj.ilji_server.tag.entity.Tag;
 import com.bj.ilji_server.tag.entity.TagVisibility;
 import com.bj.ilji_server.tag.repository.TagRepository;
@@ -46,14 +47,12 @@ public class TagService {
             case MUTUAL:
                 visibleScopes = List.of(TagVisibility.PUBLIC, TagVisibility.MUTUAL_FRIENDS);
                 break;
-            case FOLLOWING: // Viewer is following Owner
+            case FOLLOWING:
+            case NONE:
+            case FOLLOWED_BY:
+            default:
                 visibleScopes = List.of(TagVisibility.PUBLIC);
                 break;
-            case NONE:
-            case FOLLOWED_BY: // Owner is following Viewer, but not the other way around
-            default:
-                // Per spec, if the viewer is not following the owner, they can't see any tags.
-                return Collections.emptyList();
         }
 
         return tagRepository.findByUserAndVisibilityIn(owner, visibleScopes).stream()
@@ -67,7 +66,8 @@ public class TagService {
                 .user(user)
                 .label(request.getLabel())
                 .color(request.getColor())
-                .build(); // Visibility is set to PRIVATE by default in the entity
+                .visibility(request.getVisibility()) // 추가
+                .build();
         Tag savedTag = tagRepository.save(newTag);
         return new TagResponse(savedTag);
     }
@@ -84,5 +84,19 @@ public class TagService {
         // TODO: 이 태그를 사용하고 있는 스케줄들의 tag_id를 null로 변경하는 로직 추가 필요
 
         tagRepository.delete(tag);
+    }
+
+    @Transactional
+    public TagResponse updateTag(User user, Long tagId, TagUpdateRequest request) {
+        Tag tag = tagRepository.findById(tagId)
+                .orElseThrow(() -> new IllegalArgumentException("태그를 찾을 수 없습니다."));
+
+        if (!tag.getUser().getId().equals(user.getId())) {
+            throw new AccessDeniedException("이 태그를 수정할 권한이 없습니다.");
+        }
+
+        tag.update(request);
+
+        return new TagResponse(tag);
     }
 }

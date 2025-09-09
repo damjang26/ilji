@@ -1,5 +1,6 @@
 package com.bj.ilji_server.schedule.service;
 
+import com.bj.ilji_server.friend.service.FriendService;
 import com.bj.ilji_server.tag.entity.Tag;
 import com.bj.ilji_server.tag.repository.TagRepository;
 import com.bj.ilji_server.schedule.dto.ScheduleCreateRequest;
@@ -8,6 +9,8 @@ import com.bj.ilji_server.schedule.entity.Schedule;
 import com.bj.ilji_server.schedule.dto.ScheduleResponse;
 import com.bj.ilji_server.schedule.repository.ScheduleRepository;
 import com.bj.ilji_server.user.entity.User;
+import com.bj.ilji_server.friend.dto.FriendshipStatus;
+import com.bj.ilji_server.tag.entity.TagVisibility;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -20,7 +23,9 @@ import net.fortuna.ical4j.model.component.VEvent;
 import net.fortuna.ical4j.model.property.RRule;
 
 import java.time.*;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import java.text.ParseException;
@@ -32,6 +37,7 @@ public class ScheduleService {
 
     private final ScheduleRepository scheduleRepository;
     private final TagRepository tagRepository;
+    private final FriendService friendService;
 
     /**
      * 캘린더 뷰를 위해 특정 기간 내의 모든 일정(반복 일정 포함)을 조회합니다.
@@ -68,16 +74,54 @@ public class ScheduleService {
     }
 
     @Transactional(readOnly = true)
-    public List<ScheduleResponse> getSchedulesForUser(User user, List<Long> tagIds) {
-        List<Schedule> schedules;
+    public List<ScheduleResponse> getSchedulesForUser(User viewer, List<Long> tagIds) {
         if (CollectionUtils.isEmpty(tagIds)) {
-            schedules = scheduleRepository.findByUserIdOrderByStartTimeAsc(user.getId());
-        } else {
-
-
-
-            schedules = scheduleRepository.findByUserIdAndTagIdInOrderByStartTimeAsc(user.getId(), tagIds);
+            return scheduleRepository.findByUserIdOrderByStartTimeAsc(viewer.getId()).stream()
+                    .map(ScheduleResponse::new)
+                    .collect(Collectors.toList());
         }
+
+        // 1. 요청된 모든 태그를 ID로 조회
+        List<Tag> requestedTags = tagRepository.findAllById(tagIds);
+
+        // 2. 태그 소유자별로 그룹화
+        Map<User, List<Tag>> tagsByOwner = requestedTags.stream()
+                .collect(Collectors.groupingBy(Tag::getUser));
+
+        // 3. 현재 사용자가 볼 수 있는 태그 ID만 필터링
+        List<Long> visibleTagIds = tagsByOwner.entrySet().stream()
+                .flatMap(entry -> {
+                    User owner = entry.getKey();
+                    List<Tag> tags = entry.getValue();
+
+                    // 본인 태그는 모두 조회 가능
+                    if (owner.getId().equals(viewer.getId())) {
+                        return tags.stream();
+                    }
+
+                    // 다른 사용자 태그는 공개 범위 확인
+                    FriendshipStatus status = friendService.checkFriendshipStatus(viewer, owner);
+                    return tags.stream().filter(tag -> {
+                        TagVisibility visibility = tag.getVisibility();
+                        if (visibility == TagVisibility.PUBLIC) {
+                            return true;
+                        }
+                        if (visibility == TagVisibility.MUTUAL_FRIENDS && status == FriendshipStatus.MUTUAL) {
+                            return true;
+                        }
+                        return false;
+                    });
+                })
+                .map(Tag::getId)
+                .collect(Collectors.toList());
+
+        if (visibleTagIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 4. 권한이 확인된 태그 ID로 일정 조회
+        List<Schedule> schedules = scheduleRepository.findByTag_IdInOrderByStartTimeAsc(visibleTagIds);
+
         return schedules.stream()
                 .map(ScheduleResponse::new)
                 .collect(Collectors.toList());
