@@ -1,5 +1,6 @@
 package com.bj.ilji_server.user.entity;
 
+import com.bj.ilji_server.user_profile.entity.UserProfile;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -37,6 +38,9 @@ public class User implements UserDetails {
 
     @Column(nullable = false)
     private String providerId;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private UserProfile userProfile;
 
     @Builder
     public User(Long id, String email, String name, String picture, String provider, String providerId) {
