@@ -4,6 +4,7 @@ import com.bj.ilji_server.firebase.FirebaseService;
 import com.bj.ilji_server.friend.repository.FriendRepository;
 import com.bj.ilji_server.ilog.dto.ILogCreateRequest;
 import com.bj.ilji_server.ilog.dto.ILogFeedResponseDto;
+import com.bj.ilji_server.ilog.dto.ILogUpdateRequest;
 import com.bj.ilji_server.ilog.dto.ILogResponse;
 import com.bj.ilji_server.ilog.entity.ILog;
 import com.bj.ilji_server.ilog.repository.ILogRepository;
@@ -169,6 +170,61 @@ public class ILogService {
 
         // ✅ 모든 이미지 삭제 성공 후 DB 삭제
         ilogRepository.deleteById(logId);
+    }
+
+
+    // 일기 수정
+    @Transactional
+    public ILogResponse updateLog(Long logId, User user, ILogUpdateRequest request, List<MultipartFile> newImages) throws IOException {
+        // 1. 일기 조회 및 수정 권한 확인
+        ILog log = ilogRepository.findById(logId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + logId));
+
+        if (!log.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("권한이 없습니다.");
+        }
+
+        // 2. 이미지 변경 처리
+        // 2-1. DB에 저장된 기존 이미지 URL 목록을 가져옵니다.
+        List<String> oldImageUrls = new ArrayList<>();
+        if (log.getImgUrl() != null && !log.getImgUrl().isBlank()) {
+            oldImageUrls = objectMapper.readValue(log.getImgUrl(), new TypeReference<>() {});
+        }
+
+        // 2-2. 프론트에서 보낸 '유지할 이미지' 목록에 없는 기존 이미지는 Firebase에서 삭제합니다.
+        List<String> existingUrlsToKeep = request.getExistingImageUrls() != null ? request.getExistingImageUrls() : new ArrayList<>();
+
+        List<String> urlsToDelete = oldImageUrls.stream()
+                .filter(oldUrl -> !existingUrlsToKeep.contains(oldUrl))
+                .collect(Collectors.toList());
+
+        for (String url : urlsToDelete) {
+            try {
+                firebaseService.deleteFile(url);
+            } catch (Exception e) {
+                throw new RuntimeException("기존 이미지 삭제에 실패했습니다. 일기 수정을 중단합니다.", e);
+            }
+        }
+
+        // 2-3. 새로 첨부된 이미지가 있다면 Firebase에 업로드합니다.
+        List<String> newUploadedUrls = new ArrayList<>();
+        if (newImages != null && !newImages.isEmpty()) {
+            for (MultipartFile image : newImages) {
+                String imageUrl = firebaseService.uploadFile(image, "ilog");
+                newUploadedUrls.add(imageUrl);
+            }
+        }
+
+        // 2-4. 최종 이미지 목록을 구성하고 JSON 문자열로 변환합니다.
+        List<String> finalImageUrls = new ArrayList<>(existingUrlsToKeep);
+        finalImageUrls.addAll(newUploadedUrls);
+        String finalImageUrlsJson = objectMapper.writeValueAsString(finalImageUrls);
+
+        // 3. 엔티티의 내용을 업데이트합니다.
+        log.update(request.getContent(), finalImageUrlsJson, request.getVisibility());
+
+        // 4. 변경된 엔티티를 Response DTO로 변환하여 반환합니다. (@Transactional에 의해 DB에는 자동 저장됩니다.)
+        return ILogResponse.fromEntity(log);
     }
 
 }

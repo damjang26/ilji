@@ -2,6 +2,7 @@ package com.bj.ilji_server.ilog.controller;
 
 import com.bj.ilji_server.ilog.dto.ILogCreateRequest;
 import com.bj.ilji_server.ilog.dto.ILogFeedResponseDto;
+import com.bj.ilji_server.ilog.dto.ILogUpdateRequest;
 import com.bj.ilji_server.ilog.dto.ILogResponse;
 import com.bj.ilji_server.ilog.service.ILogService;
 import com.bj.ilji_server.user.entity.User;
@@ -125,5 +126,23 @@ public class ILogController {
 
         ilogService.deleteLog(user, logId);
         return ResponseEntity.noContent().build();
+    }
+
+    // ---------------------------------------------------
+    // 7️⃣ 일기 수정
+    // ---------------------------------------------------
+    @PutMapping(value = "/{logId}", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
+    public ResponseEntity<ILogResponse> updateLog(
+            @AuthenticationPrincipal User user,
+            @PathVariable("logId") Long logId,
+            // 새로 추가되거나 변경된 이미지 파일 목록
+            @RequestPart(value = "images", required = false) List<MultipartFile> newImages,
+            // 수정될 텍스트 내용과 유지할 기존 이미지 URL 목록
+            @RequestPart("request") ILogUpdateRequest request
+    ) throws IOException {
+
+        // 서비스 레이어에 수정에 필요한 모든 정보를 전달합니다.
+        ILogResponse updatedLog = ilogService.updateLog(logId, user, request, newImages);
+        return ResponseEntity.ok(updatedLog);
     }
 }
