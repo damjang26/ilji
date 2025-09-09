@@ -1,7 +1,6 @@
 package com.bj.ilji_server.ilog.dto;
 
 import com.bj.ilji_server.ilog.entity.ILog;
-import com.bj.ilji_server.user.entity.User;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -14,23 +13,11 @@ import java.time.LocalDate;
 public class ILogCreateRequest {
 
     private Long userId;
-    private LocalDate iLogDate;
+    private LocalDate logDate;
     private String content;
-    private String imgUrl;
+    // ✅ [제거] 이미지 URL은 서비스 레이어에서 MultipartFile을 통해 직접 생성되므로 DTO에서 제거합니다.
+    // private String imgUrl;
     private ILog.Visibility visibility = ILog.Visibility.PUBLIC;
     private String friendTags;
     private String tags;
-
-    // Entity로 변환하는 편의 메서드
-    public ILog toEntity(User user) {
-        return ILog.builder()
-                .user(user)
-                .ilogDate(this.iLogDate)
-                .content(this.content)
-                .imgUrl(this.imgUrl)
-                .visibility(this.visibility)
-                .friendTags(this.friendTags)
-                .tags(this.tags)
-                .build();
-    }
 }
