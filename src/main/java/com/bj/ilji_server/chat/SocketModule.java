@@ -37,11 +37,11 @@ public class SocketModule {
 
         // 'chatMessage' 이벤트를 받을 리스너
         server.addEventListener("chatMessage", ChatMessage.class, (client, data, ackSender) -> {
-            log.info("Message from client [{}]: {}", client.getSessionId(), data.getMessage());
 
             String jsonLog = objectMapper.writeValueAsString(data);
             // MongoDB 저장
             chatMessageRepository.save(data);
+            log.info("Message from client [{}]: {}", client.getSessionId(), data.getMessage());
 
 
             // 받은 메시지를 해당 방의 모든 클라이언트에게 다시 보냅니다.

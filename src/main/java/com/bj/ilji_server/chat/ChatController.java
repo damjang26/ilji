@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,6 +17,8 @@ import java.util.List;
 public class ChatController {
 
     private final ChatService chatService;
+
+    private final ChatMessageService chatMessageService;
 
     @GetMapping("/list")
     public ResponseEntity<List<ChatRoom>> list(Authentication authentication) {
@@ -30,4 +33,10 @@ public class ChatController {
         List<ChatRoom> myChatRooms = chatService.findMyChatRooms(userId);
         return ResponseEntity.ok(myChatRooms);
     }
+
+    @GetMapping("/messages/{roomId}")
+    public List<ChatMessage> getChatMessages(@PathVariable String roomId) {
+        return chatMessageService.getMessagesByRoomId(roomId);
+    }
+
 }
