@@ -14,6 +14,15 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.bj.ilji_server.schedule.dto.ScheduleBrief;
+import com.bj.ilji_server.notification.type.NotificationType;
+import com.bj.ilji_server.notification.type.EntityType;
+import com.bj.ilji_server.notification.type.IdempotencyKey;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
 @Component
 @RequiredArgsConstructor
 public class NotificationComposer {
@@ -144,6 +153,66 @@ public class NotificationComposer {
 
         notificationService.create(n);
     }
+
+    /** 일정 요약 알림 (예: "오늘 일정 N개가 있습니다") */
+    public void scheduleDailySummary(Long recipientId, LocalDate date,
+                                     int totalCount, List<ScheduleBrief> topItems) {
+        if (totalCount <= 0) return; // ★ 잘못 호출되더라도 생성 방지
+        // 유저별 '하루 1건' 멱등을 위해 날짜 기반 키 사용
+        long yyyymmdd = date.getYear() * 10000L + date.getMonthValue() * 100L + date.getDayOfMonth();
+
+        String title = "오늘 일정 " + totalCount + "개가 있습니다";
+        String body  = renderScheduleLines(topItems);
+
+        Notification n = new Notification();
+        n.setRecipientId(recipientId);
+        n.setType(NotificationType.SCHEDULE_DAILY_SUMMARY);
+        n.setEntityType(EntityType.SCHEDULE);
+        n.setMessageTitle(title);
+        n.setMessageBody(body);
+        n.setLinkUrl("/schedules?date=" + date); // 라우팅 규칙에 맞게 수정 가능
+
+        n.setIdempotencyKey(IdempotencyKey.instant(
+                recipientId, NotificationType.SCHEDULE_DAILY_SUMMARY, EntityType.SCHEDULE, yyyymmdd));
+
+        // (옵션) 메타: 날짜/총개수/상단 몇 개의 텍스트 라인
+        try {
+            var meta = new java.util.HashMap<String, Object>();
+            meta.put("date", date.toString());
+            meta.put("total", totalCount);
+            meta.put("top", topItems == null ? java.util.List.of()
+                    : topItems.stream().limit(5).map(this::formatLine).toList());
+            n.setMetaJson(objectMapper.writeValueAsString(meta));
+        } catch (Exception ignore) { /* 본문만으로도 충분하니 무시 */ }
+
+        notificationService.create(n);
+    }
+
+    /** 본문 줄 생성 */
+    private String renderScheduleLines(List<ScheduleBrief> items) {
+        if (items == null || items.isEmpty()) return "오늘 등록된 일정이 없습니다.";
+        StringBuilder sb = new StringBuilder();
+        for (ScheduleBrief it : items.stream().limit(5).toList()) {
+            sb.append("- ").append(formatLine(it)).append('\n');
+        }
+        return sb.toString();
+    }
+
+    /** "HH:mm~HH:mm 제목" 형태(시간 없으면 제목만) */
+    private String formatLine(ScheduleBrief it) {
+        DateTimeFormatter f = DateTimeFormatter.ofPattern("HH:mm");
+        var s = it.startsAt();
+        var e = it.endsAt();
+        if (s != null && e != null) {
+            return s.format(f) + "~" + e.format(f) + " " + it.title();
+        } else if (s != null) {
+            return s.format(f) + " " + it.title();
+        } else {
+            return it.title();
+        }
+    }
+
+
 
     private String writeJson(Object o) {
         try { return objectMapper.writeValueAsString(o); }
