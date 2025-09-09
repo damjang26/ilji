@@ -24,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -41,8 +42,9 @@ public class ILogService {
     // 특정 사용자의 일기 목록 조회
     @Transactional(readOnly = true)
     public List<ILogResponse> getLogsForUser(User user) {
-        // ✅ [수정] User ID가 아닌, UserProfile의 ID를 사용해야 합니다.
-        List<ILog> logs = ilogRepository.findByUserProfileUserIdOrderByLogDateAsc(user.getUserProfile().getUserId());
+        // ✅ [개선] N+1 문제를 방지하기 위해 JOIN FETCH를 사용하는 새로운 Repository 메서드를 호출합니다.
+        // ILog와 UserProfile을 한 번의 쿼리로 함께 조회하여 성능을 최적화합니다.
+        List<ILog> logs = ilogRepository.findAllByUserProfileUserIdWithUserProfile(user.getUserProfile().getUserId());
         return logs.stream()
                 .map(iLog -> ILogResponse.fromEntity(iLog, objectMapper))
                 .collect(Collectors.toList());
@@ -50,24 +52,26 @@ public class ILogService {
 
     @Transactional(readOnly = true)
     public Page<ILogFeedResponseDto> getFeedForUser(User currentUser, int page, int size) {
-        // 1. 내가 팔로우하는 사람들의 ID 목록을 조회한다.
+        // ✅ [수정] pageable 객체를 먼저 생성해야 if문에서 사용할 수 있습니다.
+        // 1. 최신순(createdAt 기준 내림차순)으로 정렬 조건을 설정한다.
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+
+        // 2. 내가 팔로우하는 사람들의 ID 목록을 조회한다.
         // ✅ [수정] User ID가 아닌, UserProfile의 ID 목록을 가져와야 합니다.
         List<Long> followingProfileIds = friendRepository.findAllByFollower(currentUser)
                 .stream()
                 .map(friend -> friend.getFollowing().getUserProfile().getUserId())
                 .collect(Collectors.toList());
 
-        // [개선] 만약 팔로우하는 사용자가 없다면, 빈 리스트를 전달하여 불필요한 쿼리 조건을 피합니다.
+        // 3. [개선] 만약 팔로우하는 사용자가 없다면, 빈 리스트를 전달하여 불필요한 쿼리 조건을 피합니다.
         // JPA와 대부분의 DB는 빈 리스트를 잘 처리하지만, 명시적으로 비어있음을 나타내는 것이 더 안전할 수 있습니다.
+        // ✅ [개선] new ArrayList<>() 대신 Collections.emptyList()를 사용하여 불변의 빈 리스트를 명시적으로 사용합니다.
         if (followingProfileIds.isEmpty()) {
-            followingProfileIds = new ArrayList<>(); // 혹은 Collections.emptyList()
+            return Page.empty(pageable); // 팔로우하는 사람이 없으면 비어있는 페이지를 즉시 반환하여 불필요한 DB 조회를 막습니다.
         }
 
-        // 2. 최신순(createdAt 기준 내림차순)으로 정렬 조건을 설정한다.
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-
-        // 3. Repository에 위임하여 최종 피드 데이터를 조회한다.
-        // ✅ [수정] 팔로잉 목록으로 UserProfile ID 리스트를 전달합니다.
+        // 4. Repository에 위임하여 최종 피드 데이터를 조회한다.
+        // ✅ [개선] N+1 문제를 방지하기 위해 JOIN FETCH를 사용하는 새로운 Repository 메서드를 호출합니다.
         Page<ILog> feedPage = ilogRepository.findFeedByUserProfileIdAndFollowingIds(
                 currentUser.getUserProfile().getUserId(),
                 followingProfileIds,
@@ -75,7 +79,7 @@ public class ILogService {
                 pageable
         );
 
-        // 4. Page<ILog>를 Page<ILogResponse>로 변환하여 반환한다.
+        // 5. Page<ILog>를 Page<ILogResponse>로 변환하여 반환한다.
         return feedPage.map(iLog -> ILogFeedResponseDto.fromEntity(iLog, objectMapper));
     }
 
@@ -120,25 +124,28 @@ public class ILogService {
     // 특정 날짜 일기 조회
     @Transactional(readOnly = true)
     public ILogResponse getLogByDate(User user, LocalDate date) {
-        // ✅ [수정] UserProfile ID를 사용하여 조회합니다.
-        ILog log = ilogRepository.findByUserProfileUserIdAndLogDate(user.getUserProfile().getUserId(), date);
-        return log != null ? ILogResponse.fromEntity(log, objectMapper) : null;
+        // ✅ [개선] Optional과 map을 사용하여 코드를 더 간결하고 Null-safe하게 만듭니다.
+        return ilogRepository.findByUserProfileUserIdAndLogDate(user.getUserProfile().getUserId(), date)
+                .map(log -> ILogResponse.fromEntity(log, objectMapper))
+                .orElse(null);
     }
 
     // 이전 일기 조회
     @Transactional(readOnly = true)
     public ILogResponse getPreviousLog(User user, LocalDate date) {
-        // ✅ [수정] UserProfile ID를 사용하여 조회합니다.
-        ILog log = ilogRepository.findFirstByUserProfileUserIdAndLogDateLessThanOrderByLogDateDesc(user.getUserProfile().getUserId(), date);
-        return log != null ? ILogResponse.fromEntity(log, objectMapper) : null;
+        // ✅ [개선] Optional과 map을 사용하여 코드를 더 간결하고 Null-safe하게 만듭니다.
+        return ilogRepository.findFirstByUserProfileUserIdAndLogDateLessThanOrderByLogDateDesc(user.getUserProfile().getUserId(), date)
+                .map(log -> ILogResponse.fromEntity(log, objectMapper))
+                .orElse(null);
     }
 
     // 다음 일기 조회
     @Transactional(readOnly = true)
     public ILogResponse getNextLog(User user, LocalDate date) {
-        // ✅ [수정] UserProfile ID를 사용하여 조회합니다.
-        ILog log = ilogRepository.findFirstByUserProfileUserIdAndLogDateGreaterThanOrderByLogDateAsc(user.getUserProfile().getUserId(), date);
-        return log != null ? ILogResponse.fromEntity(log, objectMapper) : null;
+        // ✅ [개선] Optional과 map을 사용하여 코드를 더 간결하고 Null-safe하게 만듭니다.
+        return ilogRepository.findFirstByUserProfileUserIdAndLogDateGreaterThanOrderByLogDateAsc(user.getUserProfile().getUserId(), date)
+                .map(log -> ILogResponse.fromEntity(log, objectMapper))
+                .orElse(null);
     }
 
     // 일기 삭제
@@ -180,8 +187,9 @@ public class ILogService {
         ILog log = ilogRepository.findById(logId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + logId));
 
-        if (!log.getUser().getId().equals(user.getId())) {
-            throw new IllegalArgumentException("권한이 없습니다.");
+        if (!log.getUserProfile().getUserId().equals(user.getId())) {
+            // ✅ [개선] 권한 없음 예외는 SecurityException을 사용하는 것이 더 의미에 맞습니다.
+            throw new SecurityException("일기를 수정할 권한이 없습니다.");
         }
 
         // 2. 이미지 변경 처리
@@ -224,7 +232,8 @@ public class ILogService {
         log.update(request.getContent(), finalImageUrlsJson, request.getVisibility());
 
         // 4. 변경된 엔티티를 Response DTO로 변환하여 반환합니다. (@Transactional에 의해 DB에는 자동 저장됩니다.)
-        return ILogResponse.fromEntity(log);
+        // ✅ [수정] fromEntity 메서드에 ObjectMapper를 전달하여 JSON 필드를 올바르게 처리하도록 수정합니다.
+        return ILogResponse.fromEntity(log, objectMapper);
     }
 
 }
