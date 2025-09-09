@@ -44,9 +44,26 @@ public class Tag {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Tag(User user, String label, String color) {
+    public Tag(User user, String label, String color, TagVisibility visibility) {
         this.user = user;
         this.label = label;
         this.color = color;
+        this.visibility = (visibility != null) ? visibility : TagVisibility.PRIVATE;
+    }
+
+    public void updateVisibility(TagVisibility visibility) {
+        this.visibility = visibility;
+    }
+
+    public void update(com.bj.ilji_server.tag.dto.TagUpdateRequest request) {
+        if (request.getLabel() != null) {
+            this.label = request.getLabel();
+        }
+        if (request.getColor() != null) {
+            this.color = request.getColor();
+        }
+        if (request.getVisibility() != null) {
+            this.visibility = request.getVisibility();
+        }
     }
 }
