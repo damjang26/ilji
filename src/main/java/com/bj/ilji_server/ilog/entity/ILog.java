@@ -1,6 +1,6 @@
 package com.bj.ilji_server.ilog.entity;
 
-import com.bj.ilji_server.user.entity.User;
+import com.bj.ilji_server.user_profile.entity.UserProfile;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.ColumnDefault;
@@ -16,14 +16,14 @@ import java.time.LocalDateTime;
 @Table(name = "i_log",
     uniqueConstraints = {
         @UniqueConstraint( // 한 유저가 같은 날짜에 중복 작성 방지
-            name = "uq_i_log_user_date",
-            columnNames = {"user_id", "i_log_date"}
+                name = "uq_ilog_user_profile_date",
+                columnNames = {"user_profile_id", "log_date"}
         )
     }
 )
 @DynamicInsert // @ColumnDefault가 제대로 동작하도록 추가
 public class ILog {
-    
+
     // 공개 범위를 나타내는 Enum
     public enum Visibility {
         PUBLIC, // 0 - 전체 공개
@@ -35,18 +35,20 @@ public class ILog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_profile_id", nullable = false)
+    private UserProfile userProfile;
 
-    @Column(name = "i_log_date", nullable = false)
-    private LocalDate ilogDate;
+
+    @Column(name = "log_date", nullable = false)
+    private LocalDate logDate;
 
     // DDL이 VARCHAR2(3000)이므로 @Lob 제거, length 명시
     @Column(name = "content", nullable = false, length = 3000)
     private String content;
 
-    @Column(name = "img_url", length = 2048)
+    // ✅ [개선] DDL의 VARCHAR2(4000)과 길이를 일치시켜 일관성을 유지합니다.
+    @Column(name = "img_url", length = 4000)
     private String imgUrl;
 
     @CreationTimestamp
@@ -76,9 +78,9 @@ public class ILog {
     private String tags;
 
     @Builder
-    public ILog(User user, LocalDate ilogDate, String content, String imgUrl, Visibility visibility, String friendTags, String tags) {
-        this.user = user;
-        this.ilogDate = ilogDate;
+    public ILog(UserProfile userProfile, LocalDate logDate, String content, String imgUrl, Visibility visibility, String friendTags, String tags) {
+        this.userProfile = userProfile;
+        this.logDate = logDate;
         this.content = content;
         this.imgUrl = imgUrl;
         if (visibility != null) { // Builder로 값이 주입된 경우에만 덮어쓰기
@@ -102,5 +104,21 @@ public class ILog {
 
     public void decreaseComment() {
         this.commentCount = Math.max(0, this.commentCount - 1);
+    }
+
+    /**
+     * 일기 수정 시, 필드를 업데이트하는 편의 메서드
+     * @param content 수정될 내용
+     * @param imgUrl 수정될 이미지 URL 목록 (JSON 문자열)
+     * @param visibility 수정될 공개 범위 (int)
+     */
+    public void update(String content, String imgUrl, int visibility) {
+        this.content = content;
+        this.imgUrl = imgUrl;
+        // int 값을 Enum으로 안전하게 변환
+        if (visibility >= 0 && visibility < Visibility.values().length) {
+            this.visibility = Visibility.values()[visibility];
+        }
+        // 그 외의 값이 들어오면 기존 값을 유지하거나 기본값으로 설정할 수 있으나, 여기서는 유효한 값만 처리
     }
 }
