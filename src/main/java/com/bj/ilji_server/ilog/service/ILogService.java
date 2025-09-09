@@ -100,8 +100,8 @@ public class ILogService {
         String imgUrlJson = objectMapper.writeValueAsString(imageUrls);
 
         // 3. 요청한 사용자를 찾습니다.
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + request.getUserId()));
+        User user = userRepository.findById(request.getWriterId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + request.getWriterId()));
 
         // 4. ILog 엔티티를 생성합니다. User가 아닌 UserProfile을 저장합니다.
         ILog newIlog = ILog.builder()
@@ -155,7 +155,9 @@ public class ILogService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + logId));
 
         // ✅ [수정] 소유권 검사를 UserProfile의 User ID와 현재 로그인한 User의 ID를 비교합니다.
-        if (!log.getUserProfile().getUserId().equals(user.getId())) {
+        // [수정] @MapsId 관계로 인해 userProfile.getUserId()가 null일 수 있으므로,
+        // userProfile에 연결된 User 객체의 ID를 통해 비교해야 정확합니다.
+        if (!log.getUserProfile().getUser().getId().equals(user.getId())) {
             throw new SecurityException("일기를 삭제할 권한이 없습니다.");
         }
 
@@ -187,7 +189,9 @@ public class ILogService {
         ILog log = ilogRepository.findById(logId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + logId));
 
-        if (!log.getUserProfile().getUserId().equals(user.getId())) {
+        // [수정] @MapsId 관계로 인해 userProfile.getUserId()가 null일 수 있으므로,
+        // userProfile에 연결된 User 객체의 ID를 통해 비교해야 정확합니다.
+        if (!log.getUserProfile().getUser().getId().equals(user.getId())) {
             // ✅ [개선] 권한 없음 예외는 SecurityException을 사용하는 것이 더 의미에 맞습니다.
             throw new SecurityException("일기를 수정할 권한이 없습니다.");
         }
