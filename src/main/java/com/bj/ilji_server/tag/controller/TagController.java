@@ -2,6 +2,7 @@ package com.bj.ilji_server.tag.controller;
 
 import com.bj.ilji_server.tag.dto.TagCreateRequest;
 import com.bj.ilji_server.tag.dto.TagResponse;
+import com.bj.ilji_server.tag.dto.TagUpdateRequest;
 import com.bj.ilji_server.tag.service.TagService;
 import com.bj.ilji_server.user.entity.User;
 import lombok.RequiredArgsConstructor;
@@ -39,5 +40,15 @@ public class TagController {
     public ResponseEntity<Void> deleteTag(@AuthenticationPrincipal User user, @PathVariable Long tagId) {
         tagService.deleteTag(user, tagId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{tagId}")
+    public ResponseEntity<TagResponse> updateTag(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long tagId,
+            @RequestBody TagUpdateRequest request) {
+
+        TagResponse response = tagService.updateTag(user, tagId, request);
+        return ResponseEntity.ok(response);
     }
 }
