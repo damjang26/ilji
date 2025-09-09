@@ -32,7 +32,12 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     """)
     int markAllRead(Long recipientId, NotificationStatus read, NotificationStatus neu);
 
+
+
     // 최근 FOLLOW_REQUEST 알림 1건 조회
     Optional<Notification> findFirstByRecipientIdAndSenderIdAndTypeOrderByCreatedAtDesc(
             Long recipientId, Long senderId, NotificationType type);
+
+    Optional<Notification> findByIdempotencyKey(String idempotencyKey);
+
 }

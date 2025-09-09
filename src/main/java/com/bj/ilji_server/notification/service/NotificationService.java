@@ -9,12 +9,14 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 import java.time.Duration;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -72,6 +74,20 @@ public class NotificationService {
                         recipientId, senderId, NotificationType.FOLLOW_REQUEST)
                 .map(n -> n.getCreatedAt().isAfter(java.time.OffsetDateTime.now().minus(window)))
                 .orElse(false);
+    }
+
+
+    /** 고유키 충돌을 이 메서드 내부(새 트랜잭션)에서 발생/처리되게 강제 */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Notification createAndFlushNewTx(Notification draft) {
+        Notification saved = repository.save(draft);
+        repository.flush(); // ← 여기서 ORA-00001이 나면 이 '새 트랜잭션'만 롤백됨
+        return saved;
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Notification> findByIdempotencyKey(String key) {
+        return repository.findByIdempotencyKey(key);
     }
 
 
