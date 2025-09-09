@@ -2,6 +2,10 @@ package com.bj.ilji_server.notification.type;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.IsoFields;
+
 /**
  * 알림 중복 방지 키 생성 유틸리티
  * - 같은 입력 → 항상 같은 해시값(64자 HEX)
@@ -42,4 +46,16 @@ public final class IdempotencyKey {
     public static String daily(long recipientId, NotificationType type, EntityType entityType, Long entityId, java.time.LocalDate day) {
         return of(recipientId, type, entityType, entityId, day == null ? "" : day.toString());
     }
+
+
+    // enum 이든 class 이든 "static" 메서드는 추가 가능합니다.
+    public static String weeklyFollowRequestKey(long recipientId, long senderId) {
+        LocalDate todayKst = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        int weekYear = todayKst.get(IsoFields.WEEK_BASED_YEAR);
+        int week     = todayKst.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
+        // 예: wk:2025-37|r:100|t:FOLLOW_REQUEST|e:FOLLOW|s:200
+        return String.format("wk:%d-%02d|r:%d|t:FOLLOW_REQUEST|e:FOLLOW|s:%d",
+                weekYear, week, recipientId, senderId);
+    }
+
 }

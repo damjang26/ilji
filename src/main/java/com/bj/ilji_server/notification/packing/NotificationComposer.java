@@ -3,32 +3,37 @@ package com.bj.ilji_server.notification.packing;
 import com.bj.ilji_server.notification.entity.Notification;
 import com.bj.ilji_server.notification.service.NotificationService;
 import com.bj.ilji_server.notification.type.EntityType;
-import com.bj.ilji_server.notification.type.NotificationType;
 import com.bj.ilji_server.notification.type.IdempotencyKey;
+import com.bj.ilji_server.notification.type.NotificationType;
+import com.bj.ilji_server.schedule.dto.ScheduleBrief;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-
-import com.bj.ilji_server.schedule.dto.ScheduleBrief;
-import com.bj.ilji_server.notification.type.NotificationType;
-import com.bj.ilji_server.notification.type.EntityType;
-import com.bj.ilji_server.notification.type.IdempotencyKey;
-
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class NotificationComposer {
 
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** 결과 코드 (테스트용) */
+    public enum FollowRequestResult {
+        CREATED,
+        COOLDOWN_SKIPPED,
+        IDEMPOTENT_DUPLICATE
+    }
 
     /** 댓글 생성 알림 */
     public void commentCreated(Long recipientId, Long actorId,
@@ -86,12 +91,16 @@ public class NotificationComposer {
         notificationService.create(n);
     }
 
-    /** 팔로우 요청 알림 (7일 쿨다운 적용) */
-    public void followRequested(Long targetUserId, Long followerId, String followerName) {
-        // 최근 7일 내 같은 (followerId -> targetUserId) 팔로우 알림이 있었다면 스킵
+    /**
+     * 팔로우 요청 알림 (7일 쿨다운 + 주(week) 멱등키) — 테스트용 결과 코드 반환
+     * 테스트 종료 후에는 void로 복구 예정
+     */
+    public FollowRequestResult followRequested(Long targetUserId, Long followerId, String followerName) {
+        // 1) 7일 쿨다운 체크 (있으면 생성 시도도 하지 않음)
         if (notificationService.sentFollowNotifWithin(
                 targetUserId, followerId, Duration.ofDays(7))) {
-            return;
+            log.debug("[FOLLOW] cooldown skip: target={}, follower={}", targetUserId, followerId);
+            return FollowRequestResult.COOLDOWN_SKIPPED;
         }
 
         Map<String, Object> meta = Map.of("followerId", followerId, "followerName", followerName);
@@ -103,13 +112,22 @@ public class NotificationComposer {
         n.setEntityType(EntityType.FOLLOW);
         n.setMessageTitle(followerName + "님이 팔로우를 요청했어요");
         n.setLinkUrl("/profile/" + followerId);
-        n.setIdempotencyKey(IdempotencyKey.instant(
-                targetUserId, NotificationType.FOLLOW_REQUEST, EntityType.FOLLOW, followerId));
+
+        // 2) 주(ISO week, KST) 멱등키 적용
+        String key = IdempotencyKey.weeklyFollowRequestKey(targetUserId, followerId);
+        n.setIdempotencyKey(key);
         n.setMetaJson(writeJson(meta));
 
-        notificationService.create(n);
+        // 3) 생성 시도 → UNIQUE(idempotency_key) 위반이면 멱등 중복으로 판정
+        try {
+            notificationService.create(n); // 기존 create 그대로 사용
+            log.debug("[FOLLOW] created: key={}", key);
+            return FollowRequestResult.CREATED;
+        } catch (DataIntegrityViolationException dup) {
+            log.debug("[FOLLOW] idempotent duplicate: key={}", key);
+            return FollowRequestResult.IDEMPOTENT_DUPLICATE;
+        }
     }
-
 
     /** 팔로우 수락 알림 */
     public void followAccepted(Long followerUserId, Long followeeId, String followeeName) {
@@ -157,7 +175,8 @@ public class NotificationComposer {
     /** 일정 요약 알림 (예: "오늘 일정 N개가 있습니다") */
     public void scheduleDailySummary(Long recipientId, LocalDate date,
                                      int totalCount, List<ScheduleBrief> topItems) {
-        if (totalCount <= 0) return; // ★ 잘못 호출되더라도 생성 방지
+        if (totalCount <= 0) return; // 잘못 호출되더라도 생성 방지
+
         // 유저별 '하루 1건' 멱등을 위해 날짜 기반 키 사용
         long yyyymmdd = date.getYear() * 10000L + date.getMonthValue() * 100L + date.getDayOfMonth();
 
@@ -211,8 +230,6 @@ public class NotificationComposer {
             return it.title();
         }
     }
-
-
 
     private String writeJson(Object o) {
         try { return objectMapper.writeValueAsString(o); }
