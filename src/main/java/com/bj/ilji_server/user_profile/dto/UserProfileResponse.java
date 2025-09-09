@@ -28,7 +28,7 @@ public class UserProfileResponse {
     }
 
     private UserProfileResponse(UserProfile userProfile) {
-        this.userId = userProfile.getId();
+        this.userId = userProfile.getUserId();
         this.email = userProfile.getUser().getEmail(); // 연관된 User 정보 사용
         this.name = userProfile.getUser().getName();
         this.nickname = userProfile.getNickname();

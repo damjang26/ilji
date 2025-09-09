@@ -17,14 +17,17 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserProfile {
 
-    @Id // USER_ID가 Primary Key임을 명시
-    private Long id;
+    @Id // 이 필드가 UserProfile 엔티티의 기본 키(Primary Key)임을 명시
+    private Long userId;
 
-    // User 엔티티와 1:1 관계를 맺습니다.
-    // @MapsId는 UserProfile의 PK(userId)를 User의 PK와 동일하게 사용하도록 합니다.
-    @OneToOne(fetch = FetchType.LAZY) // 프로필 조회 시 User 정보는 항상 필요하므로 EAGER로 설정
+    /**
+     * User 엔티티와 1:1 식별 관계(Identifying Relationship)를 맺습니다.
+     * @MapsId: UserProfile의 PK(@Id가 붙은 userId 필드) 값을 아래 'user' 필드의 PK 값으로 매핑합니다.
+     * @JoinColumn: 데이터베이스 상에서 'USER_ID' 컬럼을 외래 키로 사용합니다.
+     */
+    @OneToOne(fetch = FetchType.LAZY)
     @MapsId
-    @JoinColumn(name = "USER_ID") // FK 컬럼을 명시
+    @JoinColumn(name = "USER_ID")
     private User user;
 
     @Column(name = "NICKNAME", length = 50)

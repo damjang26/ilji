@@ -2,6 +2,7 @@ package com.bj.ilji_server.user_profile.service;
 
 import com.bj.ilji_server.firebase.FirebaseService;
 import com.bj.ilji_server.user.constant.UserProfileConstant;
+import com.bj.ilji_server.user.dto.UserSearchResponse;
 import com.bj.ilji_server.user.entity.User;
 import com.bj.ilji_server.user.repository.UserRepository;
 import com.bj.ilji_server.user_profile.dto.UserProfileResponse;
@@ -15,6 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -81,8 +85,10 @@ public class UserProfileService {
             userProfile.setBannerImage(newBannerImageUrl);
         }
 
-        // 4. 텍스트 정보 업데이트
-        userProfile.update(request);
+        // 4. 텍스트 정보 업데이트 (request가 null이 아닐 경우에만)
+        if (request != null) {
+            userProfile.update(request);
+        }
 
         // 5. 변경 사항을 DB에 반영 (JPA Dirty-checking에 의해 트랜잭션 커밋 시 자동 반영)
         // 명시적으로 save를 호출할 필요는 없지만, 가독성이나 즉시 반영을 위해 saveAndFlush를 사용할 수 있습니다.
@@ -108,5 +114,20 @@ public class UserProfileService {
                 .bannerImage(UserProfileConstant.DEFAULT_BANNER_IMAGE_URL)
                 .build();
         return userProfileRepository.save(newProfile);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserSearchResponse> searchUsers(String query, User currentUser) {
+        List<UserProfile> userProfiles = userProfileRepository.searchByEmailOrNickname(query, currentUser.getId());
+        return userProfiles.stream()
+                .map(UserSearchResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    // User ID로 프로필을 찾거나 생성하는 헬퍼 메서드
+    private UserProfile findOrCreateProfile(Long userId) {
+        return userProfileRepository.findById(userId)
+                .orElseGet(() -> createNewProfile(userRepository.findById(userId)
+                        .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다. ID: " + userId))));
     }
 }
