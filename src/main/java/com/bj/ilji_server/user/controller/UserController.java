@@ -2,6 +2,7 @@ package com.bj.ilji_server.user.controller;
 
 import com.bj.ilji_server.user.dto.UserSearchResponse;
 import com.bj.ilji_server.user.entity.User;
+import com.bj.ilji_server.user_profile.dto.UserProfileResponse;
 import com.bj.ilji_server.user_profile.service.UserProfileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -9,6 +10,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,5 +36,16 @@ public class UserController {
 
         List<UserSearchResponse> response = userProfileService.searchUsers(query, currentUser);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * [추가] 다른 사용자의 프로필 정보를 ID로 조회합니다.
+     * @param userId 조회할 사용자의 ID
+     * @return UserProfileResponse
+     */
+    @GetMapping("/profile/{userId}")
+    public ResponseEntity<UserProfileResponse> getUserProfile(@PathVariable Long userId) {
+        UserProfileResponse profile = userProfileService.getProfileByUserId(userId);
+        return ResponseEntity.ok(profile);
     }
 }
