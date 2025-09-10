@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -30,6 +31,7 @@ public class ILogFeedResponseDto {
     private final int commentCount;
 
     private final ILog.Visibility visibility;
+    private final LocalDate logDate; // ✅ [추가] 일기 기록 날짜 필드
     private final LocalDateTime createdAt;
 
     public static ILogFeedResponseDto fromEntity(ILog iLog, ObjectMapper objectMapper) {
@@ -62,6 +64,7 @@ public class ILogFeedResponseDto {
                 .likeCount(iLog.getLikeCount())
                 .commentCount(iLog.getCommentCount())
                 .visibility(iLog.getVisibility())
+                .logDate(iLog.getLogDate())
                 .createdAt(iLog.getCreatedAt())
                 .build();
     }

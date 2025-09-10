@@ -91,10 +91,13 @@ public class ILog {
     }
 
     // 편의 메서드
-    public void increaseLike() {
+    // ✅ [추가] 좋아요 카운트를 1 증가시킵니다.
+    public void incrementLikeCount() {
         this.likeCount++;
     }
-    public void decreaseLike() {
+
+    // ✅ [추가] 좋아요 카운트를 1 감소시킵니다. 0보다 작아지지 않도록 보장합니다.
+    public void decrementLikeCount() {
         this.likeCount = Math.max(0, this.likeCount - 1);
     }
 
