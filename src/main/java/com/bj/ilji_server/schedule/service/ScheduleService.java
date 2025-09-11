@@ -1,5 +1,6 @@
 package com.bj.ilji_server.schedule.service;
 
+import com.bj.ilji_server.friend.dto.FriendshipStatus;
 import com.bj.ilji_server.friend.service.FriendService;
 import com.bj.ilji_server.tag.entity.Tag;
 import com.bj.ilji_server.tag.repository.TagRepository;
@@ -74,32 +75,24 @@ public class ScheduleService {
     }
 
     @Transactional(readOnly = true)
-    public List<ScheduleResponse> getSchedulesForUser(User viewer, List<Long> tagIds) {
-        if (CollectionUtils.isEmpty(tagIds)) {
-            return scheduleRepository.findByUserIdOrderByStartTimeAsc(viewer.getId()).stream()
-                    .map(ScheduleResponse::new)
-                    .collect(Collectors.toList());
-        }
+    public List<ScheduleResponse> getSchedulesForUser(User viewer, List<Long> numericTagIds, boolean includeNullTagId) {
+        // --- Existing logic to filter tags based on visibility --- START
+        // This part determines which tags the viewer is allowed to see from all users.
+        // It returns a list of tag IDs that are visible to the viewer.
+        List<Tag> allRequestedTags = tagRepository.findAllById(numericTagIds);
 
-        // 1. 요청된 모든 태그를 ID로 조회
-        List<Tag> requestedTags = tagRepository.findAllById(tagIds);
-
-        // 2. 태그 소유자별로 그룹화
-        Map<User, List<Tag>> tagsByOwner = requestedTags.stream()
+        Map<User, List<Tag>> tagsByOwner = allRequestedTags.stream()
                 .collect(Collectors.groupingBy(Tag::getUser));
 
-        // 3. 현재 사용자가 볼 수 있는 태그 ID만 필터링
-        List<Long> visibleTagIds = tagsByOwner.entrySet().stream()
+        List<Long> visibleAndRequestedTagIds = tagsByOwner.entrySet().stream()
                 .flatMap(entry -> {
                     User owner = entry.getKey();
                     List<Tag> tags = entry.getValue();
 
-                    // 본인 태그는 모두 조회 가능
                     if (owner.getId().equals(viewer.getId())) {
                         return tags.stream();
                     }
 
-                    // 다른 사용자 태그는 공개 범위 확인
                     FriendshipStatus status = friendService.checkFriendshipStatus(viewer, owner);
                     return tags.stream().filter(tag -> {
                         TagVisibility visibility = tag.getVisibility();
@@ -114,13 +107,28 @@ public class ScheduleService {
                 })
                 .map(Tag::getId)
                 .collect(Collectors.toList());
+        // --- Existing logic to filter tags based on visibility --- END
 
-        if (visibleTagIds.isEmpty()) {
-            return Collections.emptyList();
+        // Now, combine the visibility-filtered tag IDs with the 'includeNullTagId' flag
+        // and pass to the repository.
+
+        // Case 1: No numeric tag IDs requested, and no 'null' tag ID requested.
+        // This means the user wants ALL schedules for themselves (no tag filter).
+        // The original code handled this by checking CollectionUtils.isEmpty(tagIds).
+        // If numericTagIds is empty AND includeNullTagId is false, it means no specific tag filter was applied.
+        // In this case, we should return all schedules for the viewer.
+        if (CollectionUtils.isEmpty(numericTagIds) && !includeNullTagId) {
+            return scheduleRepository.findByUserIdOrderByStartTimeAsc(viewer.getId()).stream()
+                    .map(ScheduleResponse::new)
+                    .collect(Collectors.toList());
         }
 
-        // 4. 권한이 확인된 태그 ID로 일정 조회
-        List<Schedule> schedules = scheduleRepository.findByTag_IdInOrderByStartTimeAsc(visibleTagIds);
+        // Case 2: Specific tag filtering is requested (either numeric IDs, or null, or both)
+        // The repository method will need to handle this.
+        // We need to pass viewer.getId() to the repository as well, to filter by user.
+        List<Schedule> schedules = scheduleRepository.findByUserIdAndTagIdsAndNullTagId(
+            viewer.getId(), visibleAndRequestedTagIds, includeNullTagId
+        );
 
         return schedules.stream()
                 .map(ScheduleResponse::new)

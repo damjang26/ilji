@@ -28,18 +28,25 @@ public class TagService {
     private final UserRepository userRepository;
     private final FriendService friendService;
 
+    @Transactional
     public List<TagResponse> getVisibleTags(Long ownerId, User viewer) {
         User owner = userRepository.findById(ownerId)
                 .orElseThrow(() -> new IllegalArgumentException("Owner not found"));
 
-        // If viewer is the owner, show all tags
+        // If viewer is the owner, check for default tag creation
         if (owner.getId().equals(viewer.getId())) {
-            return tagRepository.findByUser(owner).stream()
+            List<Tag> tags = tagRepository.findByUserOrderByPositionDesc(owner);
+            // If the user has no tags, create the default one.
+            if (tags.isEmpty()) {
+                Tag defaultTag = createAndSaveDefaultTag(owner);
+                return List.of(new TagResponse(defaultTag));
+            }
+            return tags.stream()
                     .map(TagResponse::new)
                     .collect(Collectors.toList());
         }
 
-        // Check friendship status from the viewer's perspective
+        // Logic for viewing other people's tags remains the same
         FriendshipStatus status = friendService.checkFriendshipStatus(viewer, owner);
         List<TagVisibility> visibleScopes;
 
@@ -47,17 +54,29 @@ public class TagService {
             case MUTUAL:
                 visibleScopes = List.of(TagVisibility.PUBLIC, TagVisibility.MUTUAL_FRIENDS);
                 break;
-            case FOLLOWING:
-            case NONE:
-            case FOLLOWED_BY:
-            default:
+            case FOLLOWING: // Viewer is following Owner
                 visibleScopes = List.of(TagVisibility.PUBLIC);
                 break;
+            case NONE:
+            case FOLLOWED_BY: // Owner is following Viewer, but not the other way around
+            default:
+                return Collections.emptyList();
         }
 
-        return tagRepository.findByUserAndVisibilityIn(owner, visibleScopes).stream()
+        return tagRepository.findByUserAndVisibilityInOrderByPositionDesc(owner, visibleScopes).stream()
                 .map(TagResponse::new)
                 .collect(Collectors.toList());
+    }
+
+    // Helper method to create and save the default tag
+    private Tag createAndSaveDefaultTag(User user) {
+        Tag defaultTag = Tag.builder()
+                .user(user)
+                .label("일정")
+                .color("#C3B1E1")
+                .visibility(TagVisibility.PRIVATE)
+                .build();
+        return tagRepository.save(defaultTag);
     }
 
     @Transactional
