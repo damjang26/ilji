@@ -1,5 +1,6 @@
 package com.bj.ilji_server.ilog.entity;
 
+import com.bj.ilji_server.likes.entity.Likes;
 import com.bj.ilji_server.user_profile.entity.UserProfile;
 import jakarta.persistence.*;
 import lombok.*;
@@ -9,6 +10,8 @@ import org.hibernate.annotations.DynamicInsert;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -76,6 +79,9 @@ public class ILog {
     // tags 필드 추가
     @Column(name = "tags", length = 1000)
     private String tags;
+
+    @OneToMany(mappedBy = "iLog", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Likes> likes = new ArrayList<>();
 
     @Builder
     public ILog(UserProfile userProfile, LocalDate logDate, String content, String imgUrl, Visibility visibility, String friendTags, String tags) {

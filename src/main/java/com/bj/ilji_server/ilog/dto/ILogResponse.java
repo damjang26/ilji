@@ -34,8 +34,9 @@ public class ILogResponse {
     private final int commentCount;
     private final LocalDateTime createdAt;
 
+    private final boolean isLiked;
     // Entity → DTO 변환 편의 메서드
-    public static ILogResponse fromEntity(ILog ilog, ObjectMapper objectMapper) {
+    public static ILogResponse fromEntity(ILog ilog, ObjectMapper objectMapper, Long currentUserId) {
         List<String> imageUrls = Collections.emptyList();
         if (ilog.getImgUrl() != null && !ilog.getImgUrl().isBlank()) {
             try {
@@ -51,6 +52,8 @@ public class ILogResponse {
         Long writerId = (userProfile != null) ? userProfile.getUserId() : null;
         String writerNickname = (userProfile != null) ? userProfile.getNickname() : "알 수 없는 사용자";
         String writerProfileImage = (userProfile != null) ? userProfile.getProfileImage() : null;
+        boolean isLiked = currentUserId != null && ilog.getLikes().stream()
+                .anyMatch(like -> like.getUserProfile().getUserId().equals(currentUserId));
 
         return ILogResponse.builder()
                 .id(ilog.getId())
@@ -68,6 +71,7 @@ public class ILogResponse {
                 .likeCount(ilog.getLikeCount())
                 .commentCount(ilog.getCommentCount())
                 .createdAt(ilog.getCreatedAt())
+                .isLiked(isLiked)
                 .build();
     }
 }

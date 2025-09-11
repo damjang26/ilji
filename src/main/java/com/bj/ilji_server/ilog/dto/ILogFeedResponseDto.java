@@ -30,11 +30,17 @@ public class ILogFeedResponseDto {
     private final int likeCount;
     private final int commentCount;
 
+
+
     private final ILog.Visibility visibility;
     private final LocalDate logDate; // ✅ [추가] 일기 기록 날짜 필드
     private final LocalDateTime createdAt;
 
-    public static ILogFeedResponseDto fromEntity(ILog iLog, ObjectMapper objectMapper) {
+
+    private final boolean isLiked;
+
+
+    public static ILogFeedResponseDto fromEntity(ILog iLog, ObjectMapper objectMapper, Long currentUserId) {
         List<String> imageUrls = Collections.emptyList();
         if (iLog.getImgUrl() != null && !iLog.getImgUrl().isBlank()) {
             try {
@@ -51,6 +57,10 @@ public class ILogFeedResponseDto {
         String writerNickname = (userProfile != null) ? userProfile.getNickname() : "알 수 없는 사용자";
         String writerProfileImage = (userProfile != null) ? userProfile.getProfileImage() : null;
 
+        boolean isLiked = currentUserId != null && iLog.getLikes().stream()
+                .anyMatch(like -> like.getUserProfile().getUserId().equals(currentUserId));
+
+
         return ILogFeedResponseDto.builder()
                 .id(iLog.getId())
                 .writerId(writerId)
@@ -66,6 +76,7 @@ public class ILogFeedResponseDto {
                 .visibility(iLog.getVisibility())
                 .logDate(iLog.getLogDate())
                 .createdAt(iLog.getCreatedAt())
+                .isLiked(isLiked)
                 .build();
     }
 }
