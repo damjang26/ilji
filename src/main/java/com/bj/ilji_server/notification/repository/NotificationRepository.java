@@ -40,4 +40,13 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     Optional<Notification> findByIdempotencyKey(String idempotencyKey);
 
+
+
+    long deleteByIdAndRecipientId(Long id, Long recipientId);
+
+    long deleteByRecipientId(Long recipientId);
+
 }
+
+
+

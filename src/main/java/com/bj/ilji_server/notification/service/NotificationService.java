@@ -1,10 +1,12 @@
 package com.bj.ilji_server.notification.service;
 
 import com.bj.ilji_server.notification.entity.Notification;
+import com.bj.ilji_server.notification.event.NotificationCreatedEvent;
 import com.bj.ilji_server.notification.type.NotificationStatus;
 import com.bj.ilji_server.notification.repository.NotificationRepository;
 import com.bj.ilji_server.notification.type.NotificationType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +25,9 @@ import java.util.Optional;
 public class NotificationService {
 
     private final NotificationRepository repository;
+    private final ApplicationEventPublisher publisher;
+
+
 
     @PersistenceContext
     private EntityManager em;
@@ -31,7 +36,10 @@ public class NotificationService {
     @Transactional
     public void create(Notification n) {
         try {
-            repository.save(n);
+            Notification saved = repository.save(n);
+
+            // ✅ 동일하게 이벤트 발행 (AFTER_COMMIT로 커밋 성공시에만 브로드캐스트)
+            publisher.publishEvent(new NotificationCreatedEvent(saved.getRecipientId(), saved));
         } catch (DataIntegrityViolationException e) {
             // idempotency_key UNIQUE 위반이면 중복 생성이므로 무시
         }
@@ -82,6 +90,8 @@ public class NotificationService {
     public Notification createAndFlushNewTx(Notification draft) {
         Notification saved = repository.save(draft);
         repository.flush(); // ← 여기서 ORA-00001이 나면 이 '새 트랜잭션'만 롤백됨
+        // ✅ 커밋 이후에 WS로 보내도록 이벤트 발행
+        publisher.publishEvent(new NotificationCreatedEvent(saved.getRecipientId(), saved));
         return saved;
     }
 
@@ -89,6 +99,19 @@ public class NotificationService {
     public Optional<Notification> findByIdempotencyKey(String key) {
         return repository.findByIdempotencyKey(key);
     }
+
+
+
+    @Transactional
+    public void deleteOneForRecipient(Long id, Long recipientId) {
+        repository.deleteByIdAndRecipientId(id, recipientId);
+    }
+
+    @Transactional
+    public long deleteAllForRecipient(Long recipientId) {
+        return repository.deleteByRecipientId(recipientId);
+    }
+
 
 
 }

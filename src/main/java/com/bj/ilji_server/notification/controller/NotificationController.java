@@ -54,4 +54,20 @@ public class NotificationController {
     public void markAllRead(@AuthenticationPrincipal User user) {
         service.markAllRead(user.getId());
     }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT) // 204
+    public void deleteOne(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long id
+    ) {
+        service.deleteOneForRecipient(id, user.getId());
+    }
+
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.NO_CONTENT) // 204
+    public void deleteAll(@AuthenticationPrincipal User user) {
+        service.deleteAllForRecipient(user.getId());
+    }
+
 }
