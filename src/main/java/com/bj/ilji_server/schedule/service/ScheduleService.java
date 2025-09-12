@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 
 @Service
 @RequiredArgsConstructor
@@ -76,11 +77,15 @@ public class ScheduleService {
 
     @Transactional(readOnly = true)
     public List<ScheduleResponse> getSchedulesForUser(User viewer, List<Long> numericTagIds, boolean includeNullTagId) {
-        // --- Existing logic to filter tags based on visibility --- START
-        // This part determines which tags the viewer is allowed to see from all users.
-        // It returns a list of tag IDs that are visible to the viewer.
-        List<Tag> allRequestedTags = tagRepository.findAllById(numericTagIds);
+        // If no filters are applied, return all schedules for the current user.
+        if (CollectionUtils.isEmpty(numericTagIds) && !includeNullTagId) {
+            return scheduleRepository.findByUserIdOrderByStartTimeAsc(viewer.getId()).stream()
+                    .map(ScheduleResponse::new)
+                    .collect(Collectors.toList());
+        }
 
+        // --- Logic to filter tags based on visibility ---
+        List<Tag> allRequestedTags = tagRepository.findAllById(numericTagIds);
         Map<User, List<Tag>> tagsByOwner = allRequestedTags.stream()
                 .collect(Collectors.groupingBy(Tag::getUser));
 
@@ -90,47 +95,36 @@ public class ScheduleService {
                     List<Tag> tags = entry.getValue();
 
                     if (owner.getId().equals(viewer.getId())) {
-                        return tags.stream();
+                        return tags.stream(); // User's own tags are always visible
                     }
 
                     FriendshipStatus status = friendService.checkFriendshipStatus(viewer, owner);
                     return tags.stream().filter(tag -> {
                         TagVisibility visibility = tag.getVisibility();
-                        if (visibility == TagVisibility.PUBLIC) {
-                            return true;
-                        }
-                        if (visibility == TagVisibility.MUTUAL_FRIENDS && status == FriendshipStatus.MUTUAL) {
-                            return true;
-                        }
-                        return false;
+                        return visibility == TagVisibility.PUBLIC ||
+                               (visibility == TagVisibility.MUTUAL_FRIENDS && status == FriendshipStatus.MUTUAL);
                     });
                 })
                 .map(Tag::getId)
                 .collect(Collectors.toList());
-        // --- Existing logic to filter tags based on visibility --- END
+        // --- End of visibility logic ---
 
-        // Now, combine the visibility-filtered tag IDs with the 'includeNullTagId' flag
-        // and pass to the repository.
+        List<Schedule> finalSchedules = new ArrayList<>();
 
-        // Case 1: No numeric tag IDs requested, and no 'null' tag ID requested.
-        // This means the user wants ALL schedules for themselves (no tag filter).
-        // The original code handled this by checking CollectionUtils.isEmpty(tagIds).
-        // If numericTagIds is empty AND includeNullTagId is false, it means no specific tag filter was applied.
-        // In this case, we should return all schedules for the viewer.
-        if (CollectionUtils.isEmpty(numericTagIds) && !includeNullTagId) {
-            return scheduleRepository.findByUserIdOrderByStartTimeAsc(viewer.getId()).stream()
-                    .map(ScheduleResponse::new)
-                    .collect(Collectors.toList());
+        // 1. Fetch schedules for all visible tags (from self and friends)
+        if (!CollectionUtils.isEmpty(visibleAndRequestedTagIds)) {
+            finalSchedules.addAll(scheduleRepository.findByTag_IdInOrderByStartTimeAsc(visibleAndRequestedTagIds));
         }
 
-        // Case 2: Specific tag filtering is requested (either numeric IDs, or null, or both)
-        // The repository method will need to handle this.
-        // We need to pass viewer.getId() to the repository as well, to filter by user.
-        List<Schedule> schedules = scheduleRepository.findByUserIdAndTagIdsAndNullTagId(
-            viewer.getId(), visibleAndRequestedTagIds, includeNullTagId
-        );
+        // 2. Fetch untagged schedules ONLY for the current viewer
+        if (includeNullTagId) {
+            finalSchedules.addAll(scheduleRepository.findByUserIdAndTagIsNullOrderByStartTimeAsc(viewer.getId()));
+        }
 
-        return schedules.stream()
+        // 3. Sort the combined list by start time
+        finalSchedules.sort(java.util.Comparator.comparing(Schedule::getStartTime));
+
+        return finalSchedules.stream()
                 .map(ScheduleResponse::new)
                 .collect(Collectors.toList());
     }
