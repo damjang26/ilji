@@ -10,11 +10,6 @@ public class NotificationCreatedEvent {
     private final Long recipientId;
     private final Notification notification;
 
-    public NotificationCreatedEvent(Long recipientId, Notification notification) {
-        this.recipientId = recipientId;
-        this.notification = notification;
-    }
-
     public Long getRecipientId() {
         return recipientId;
     }
