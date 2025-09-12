@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -23,9 +24,6 @@ public class NotificationComposer {
 
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // 테스트 편의를 위한 토글 (운영 복귀 시 true 또는 제거)
-    private static final boolean ENABLE_COOLDOWN = false;
 
     /** 댓글 생성 알림 */
     public void commentCreated(Long recipientId, Long actorId,
@@ -83,20 +81,12 @@ public class NotificationComposer {
         notificationService.create(n);
     }
 
-    /** 테스트용 결과 코드 */
-    public enum FollowRequestResult {
-        CREATED,
-        COOLDOWN_SKIPPED,
-        IDEMPOTENT_DUPLICATE
-    }
-
-    /** 팔로우 요청 알림 (주(week) 멱등키 + 쿨다운 토글 + REQUIRES_NEW save/flush) */
-    public FollowRequestResult followRequested(Long targetUserId, Long followerId, String followerName) {
-
-        // 1) 7일 쿨다운 (토글)
-        if (ENABLE_COOLDOWN && notificationService.sentFollowNotifWithin(
-                targetUserId, followerId, java.time.Duration.ofDays(7))) {
-            return FollowRequestResult.COOLDOWN_SKIPPED;
+    /** 팔로우 요청 알림 (주(week) 멱등키 + 7일 쿨다운 + REQUIRES_NEW save/flush) */
+    public void followRequested(Long targetUserId, Long followerId, String followerName) {
+        // 1) 7일 쿨다운
+        if (notificationService.sentFollowNotifWithin(
+                targetUserId, followerId, Duration.ofDays(7))) {
+            return;
         }
 
         Map<String, Object> meta = Map.of("followerId", followerId, "followerName", followerName);
@@ -117,9 +107,8 @@ public class NotificationComposer {
         // 3) 저장 시도 (REQUIRES_NEW + flush로 즉시 UNIQUE 위반을 여기서 처리)
         try {
             notificationService.createAndFlushNewTx(n);
-            return FollowRequestResult.CREATED;
-        } catch (org.springframework.dao.DataIntegrityViolationException dup) {
-            return FollowRequestResult.IDEMPOTENT_DUPLICATE;
+        } catch (org.springframework.dao.DataIntegrityViolationException ignored) {
+            // 같은 주차에 이미 존재 → 무음 처리
         }
     }
 

@@ -24,3 +24,23 @@ CREATE TABLE notifications (
 -- 수신자별 최신 알림 조회 성능 최적화를 위한 인덱스
 CREATE INDEX ix_notif_recipient_created
     ON notifications(recipient_id, created_at DESC);
+
+
+
+
+-- 1) 알림: (내 알림 + 상태 + 최신순) 빨리 찾기
+CREATE INDEX ix_notif_recipient_status_created
+    ON notifications (recipient_id, status, created_at DESC);
+
+-- 2) 일정: (내 일정 + 시작시각) 빨리 찾기
+CREATE INDEX ix_sched_user_start ON schedules (user_id, start_time);
+
+-- 3) 일정: (내 일정 + 끝시각)도 경우에 따라 유리해서 하나 더
+CREATE INDEX ix_sched_user_end   ON schedules (user_id, end_time);
+
+
+BEGIN
+    DBMS_STATS.GATHER_INDEX_STATS(USER, 'IX_NOTIF_RECIPIENT_STATUS_CREATED');
+    DBMS_STATS.GATHER_INDEX_STATS(USER, 'IX_SCHED_USER_START');
+    DBMS_STATS.GATHER_INDEX_STATS(USER, 'IX_SCHED_USER_END');
+END;
