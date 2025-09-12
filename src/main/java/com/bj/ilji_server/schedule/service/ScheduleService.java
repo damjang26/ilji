@@ -1,5 +1,7 @@
 package com.bj.ilji_server.schedule.service;
 
+import com.bj.ilji_server.friend.dto.FriendshipStatus;
+import com.bj.ilji_server.friend.service.FriendService;
 import com.bj.ilji_server.tag.entity.Tag;
 import com.bj.ilji_server.tag.repository.TagRepository;
 import com.bj.ilji_server.schedule.dto.ScheduleCreateRequest;
@@ -8,6 +10,8 @@ import com.bj.ilji_server.schedule.entity.Schedule;
 import com.bj.ilji_server.schedule.dto.ScheduleResponse;
 import com.bj.ilji_server.schedule.repository.ScheduleRepository;
 import com.bj.ilji_server.user.entity.User;
+import com.bj.ilji_server.friend.dto.FriendshipStatus;
+import com.bj.ilji_server.tag.entity.TagVisibility;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -20,11 +24,14 @@ import net.fortuna.ical4j.model.component.VEvent;
 import net.fortuna.ical4j.model.property.RRule;
 
 import java.time.*;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +39,7 @@ public class ScheduleService {
 
     private final ScheduleRepository scheduleRepository;
     private final TagRepository tagRepository;
+    private final FriendService friendService;
 
     /**
      * 캘린더 뷰를 위해 특정 기간 내의 모든 일정(반복 일정 포함)을 조회합니다.
@@ -68,17 +76,55 @@ public class ScheduleService {
     }
 
     @Transactional(readOnly = true)
-    public List<ScheduleResponse> getSchedulesForUser(User user, List<Long> tagIds) {
-        List<Schedule> schedules;
-        if (CollectionUtils.isEmpty(tagIds)) {
-            schedules = scheduleRepository.findByUserIdOrderByStartTimeAsc(user.getId());
-        } else {
-
-
-
-            schedules = scheduleRepository.findByUserIdAndTagIdInOrderByStartTimeAsc(user.getId(), tagIds);
+    public List<ScheduleResponse> getSchedulesForUser(User viewer, List<Long> numericTagIds, boolean includeNullTagId) {
+        // If no filters are applied, return all schedules for the current user.
+        if (CollectionUtils.isEmpty(numericTagIds) && !includeNullTagId) {
+            return scheduleRepository.findByUserIdOrderByStartTimeAsc(viewer.getId()).stream()
+                    .map(ScheduleResponse::new)
+                    .collect(Collectors.toList());
         }
-        return schedules.stream()
+
+        // --- Logic to filter tags based on visibility ---
+        List<Tag> allRequestedTags = tagRepository.findAllById(numericTagIds);
+        Map<User, List<Tag>> tagsByOwner = allRequestedTags.stream()
+                .collect(Collectors.groupingBy(Tag::getUser));
+
+        List<Long> visibleAndRequestedTagIds = tagsByOwner.entrySet().stream()
+                .flatMap(entry -> {
+                    User owner = entry.getKey();
+                    List<Tag> tags = entry.getValue();
+
+                    if (owner.getId().equals(viewer.getId())) {
+                        return tags.stream(); // User's own tags are always visible
+                    }
+
+                    FriendshipStatus status = friendService.checkFriendshipStatus(viewer, owner);
+                    return tags.stream().filter(tag -> {
+                        TagVisibility visibility = tag.getVisibility();
+                        return visibility == TagVisibility.PUBLIC ||
+                               (visibility == TagVisibility.MUTUAL_FRIENDS && status == FriendshipStatus.MUTUAL);
+                    });
+                })
+                .map(Tag::getId)
+                .collect(Collectors.toList());
+        // --- End of visibility logic ---
+
+        List<Schedule> finalSchedules = new ArrayList<>();
+
+        // 1. Fetch schedules for all visible tags (from self and friends)
+        if (!CollectionUtils.isEmpty(visibleAndRequestedTagIds)) {
+            finalSchedules.addAll(scheduleRepository.findByTag_IdInOrderByStartTimeAsc(visibleAndRequestedTagIds));
+        }
+
+        // 2. Fetch untagged schedules ONLY for the current viewer
+        if (includeNullTagId) {
+            finalSchedules.addAll(scheduleRepository.findByUserIdAndTagIsNullOrderByStartTimeAsc(viewer.getId()));
+        }
+
+        // 3. Sort the combined list by start time
+        finalSchedules.sort(java.util.Comparator.comparing(Schedule::getStartTime));
+
+        return finalSchedules.stream()
                 .map(ScheduleResponse::new)
                 .collect(Collectors.toList());
     }

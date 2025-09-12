@@ -16,6 +16,11 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
     // (기존) 특정 태그 집합에 속한 일정
     List<Schedule> findByUserIdAndTagIdInOrderByStartTimeAsc(Long userId, List<Long> tagIds);
 
+    // 여러 태그 ID에 해당하는 스케줄을 찾는 메서드
+    List<Schedule> findByTag_IdInOrderByStartTimeAsc(List<Long> tagIds);
+
+    List<Schedule> findByUserIdAndTagIsNullOrderByStartTimeAsc(Long userId);
+
     /**
      * ✅ 특정 '하루'와 겹치는 일정 상단 N개를 조회 (시작시각 오름차순)
      *
@@ -61,4 +66,5 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
             @Param("start") LocalDateTime start,
             @Param("end")   LocalDateTime end
     );
+
 }

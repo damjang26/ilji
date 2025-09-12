@@ -7,8 +7,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -19,17 +17,21 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserProfile {
 
-    @Id // USER_ID가 Primary Key임을 명시
+    @Id // 이 필드가 UserProfile 엔티티의 기본 키(Primary Key)임을 명시
     private Long userId;
 
-    // User 엔티티와 1:1 관계를 맺습니다.
-    // @MapsId는 UserProfile의 PK(userId)를 User의 PK와 동일하게 사용하도록 합니다.
-    @OneToOne(fetch = FetchType.EAGER) // 프로필 조회 시 User 정보는 항상 필요하므로 EAGER로 설정
+    /**
+     * User 엔티티와 1:1 식별 관계(Identifying Relationship)를 맺습니다.
+     * @MapsId: UserProfile의 PK(@Id가 붙은 userId 필드) 값을 아래 'user' 필드의 PK 값으로 매핑합니다.
+     * @JoinColumn: 데이터베이스 상에서 'USER_ID' 컬럼을 외래 키로 사용합니다.
+     */
+    @OneToOne(fetch = FetchType.LAZY)
     @MapsId
-    @JoinColumn(name = "USER_ID") // FK 컬럼을 명시
+    @JoinColumn(name = "USER_ID")
     private User user;
 
-    @Column(name = "NICKNAME", length = 50)
+    // unique = true 속성을 추가하여 데이터베이스 수준에서 닉네임 중복을 방지합니다.
+    @Column(name = "NICKNAME", length = 50, unique = true)
     private String nickname;
 
     @Column(name = "BIRTHDATE")
@@ -62,38 +64,61 @@ public class UserProfile {
     @Column(name = "INTERESTS", length = 500)
     private String interests;
 
-    @CreationTimestamp // 엔티티가 처음 저장될 때 현재 시간을 자동으로 저장
     @Column(name = "CREATED_AT", updatable = false)
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp // 엔티티가 업데이트될 때마다 현재 시간을 자동으로 저장
     @Column(name = "UPDATED_AT")
     private LocalDateTime updatedAt;
 
     @Builder
-    public UserProfile(User user) {
+    public UserProfile(User user, String profileImage, String bannerImage) {
         this.user = user;
-        // SQL 주석에 명시된 대로, 기본 닉네임과 프로필 이미지를
-        // User 엔티티의 정보로 초기화합니다.
-        this.nickname = user.getName();
-        this.profileImage = user.getPicture();
+        this.profileImage = profileImage;
+        this.bannerImage = bannerImage;
+    }
+
+    //== Business Logic (State-Changing Methods) ==//
+
+    public void setProfileImage(String profileImage) {
+        this.profileImage = profileImage;
+    }
+
+    public void setBannerImage(String bannerImage) {
+        this.bannerImage = bannerImage;
     }
 
     public void update(UserProfileUpdateRequest request) {
-        this.nickname = request.getNickname();
-        this.birthdate = request.getBirthdate();
-        this.phoneNumber = request.getPhoneNumber();
-        this.bannerImage = request.getBannerImage();
-        this.gender = request.getGender();
-        this.region = request.getRegion();
-        this.bio = request.getBio();
-//        this.accountPrivate = request.isPrivate(); // DTO와 프론트엔드에서도 필드명을 통일해야 합니다.
-
-        // [로그 3] DB에 저장되기 직전, 실제 필드 값이 바뀌는 순간 확인
-        System.out.println("✅ [Entity] 값 변경 전: " + this.accountPrivate + " | DTO에서 받은 값: " + request.isPrivate());
+        // DTO의 필드가 null이 아닐 경우에만 엔티티의 값을 업데이트합니다.
+        if (request.getNickname() != null) {
+            this.nickname = request.getNickname();
+        }
+        if (request.getBirthdate() != null) {
+            this.birthdate = request.getBirthdate();
+        }
+        // 이미지 URL은 서비스 레이어에서 직접 처리하므로 여기서는 제외합니다.
+        if (request.getGender() != null) {
+            this.gender = request.getGender();
+        }
+        if (request.getRegion() != null) {
+            this.region = request.getRegion();
+        }
+        if (request.getBio() != null) {
+            this.bio = request.getBio();
+        }
+        if (request.getInterests() != null) {
+            this.interests = request.getInterests();
+        }
+        if (request.getPhoneNumber() != null) {
+            this.phoneNumber = request.getPhoneNumber();
+        }
         this.accountPrivate = request.isPrivate();
-        System.out.println("✅ [Entity] 값 변경 후: " + this.accountPrivate);
+    }
 
-        this.interests = request.getInterests();
+    /**
+     * 닉네임만 개별적으로 업데이트하는 비즈니스 로직 메서드입니다.
+     * @param nickname 새로운 닉네임
+     */
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
     }
 }
