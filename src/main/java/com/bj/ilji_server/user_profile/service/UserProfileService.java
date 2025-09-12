@@ -130,4 +130,15 @@ public class UserProfileService {
                 .orElseGet(() -> createNewProfile(userRepository.findById(userId)
                         .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다. ID: " + userId))));
     }
+
+    /**
+     * [추가] 사용자 ID로 프로필 정보를 조회합니다.
+     * @param userId 조회할 사용자의 ID
+     * @return UserProfileResponse
+     */
+    @Transactional(readOnly = true)
+    public UserProfileResponse getProfileByUserId(Long userId) {
+        UserProfile userProfile = findOrCreateProfile(userId);
+        return UserProfileResponse.from(userProfile);
+    }
 }
