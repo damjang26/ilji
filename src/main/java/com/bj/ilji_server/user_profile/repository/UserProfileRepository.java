@@ -13,4 +13,7 @@ public interface UserProfileRepository extends JpaRepository<UserProfile, Long> 
            "WHERE u.id != :currentUserId " + 
            "AND (LOWER(u.email) LIKE LOWER('%' || :query || '%') OR LOWER(up.nickname) LIKE LOWER('%' || :query || '%'))")
     List<UserProfile> searchByEmailOrNickname(@Param("query") String query, @Param("currentUserId") Long currentUserId);
+
+    // 닉네임으로 프로필이 존재하는지 확인하는 메서드 추가
+    boolean existsByNickname(String nickname);
 }

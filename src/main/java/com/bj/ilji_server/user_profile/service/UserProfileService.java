@@ -92,7 +92,7 @@ public class UserProfileService {
 
         // 5. 변경 사항을 DB에 반영 (JPA Dirty-checking에 의해 트랜잭션 커밋 시 자동 반영)
         // 명시적으로 save를 호출할 필요는 없지만, 가독성이나 즉시 반영을 위해 saveAndFlush를 사용할 수 있습니다.
-        return userProfileRepository.saveAndFlush(userProfile);
+        return userProfileRepository.save(userProfile);
     }
 
     /**
@@ -140,5 +140,32 @@ public class UserProfileService {
     public UserProfileResponse getProfileByUserId(Long userId) {
         UserProfile userProfile = findOrCreateProfile(userId);
         return UserProfileResponse.from(userProfile);
+    }
+
+    /**
+     * [추가] 닉네임이 이미 사용 중인지 확인합니다.
+     * @param nickname 확인할 닉네임
+     * @return 중복이면 true, 아니면 false
+     */
+    @Transactional(readOnly = true)
+    public boolean isNicknameDuplicate(String nickname) {
+        // UserProfileRepository에 추가했던 existsByNickname 메서드를 사용합니다.
+        return userProfileRepository.existsByNickname(nickname);
+    }
+
+    /**
+     * [추가] 사용자의 닉네임을 설정(업데이트)합니다.
+     * @param incompleteUser 컨트롤러에서 받은 불완전한 User 정보
+     * @param nickname 설정할 새로운 닉네임
+     */
+    @Transactional
+    public void setNickname(User incompleteUser, String nickname) {
+        // updateUserProfile과 마찬가지로, 완전한 User 정보를 먼저 조회합니다.
+        User user = userRepository.findByEmail(incompleteUser.getEmail())
+                .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다. email=" + incompleteUser.getEmail()));
+
+        // 사용자의 프로필을 찾거나, 없으면 새로 생성합니다.
+        UserProfile userProfile = findOrCreateProfile(user.getId());
+        userProfile.updateNickname(nickname); // UserProfile 엔티티의 닉네임 업데이트 메서드 호출
     }
 }
