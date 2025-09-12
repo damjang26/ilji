@@ -28,4 +28,3 @@ CREATE TABLE schedules (
     CONSTRAINT chk_schedules_is_all_day CHECK (is_all_day IN (0, 1))
 );
 
-DROP table SCHEDULES;
