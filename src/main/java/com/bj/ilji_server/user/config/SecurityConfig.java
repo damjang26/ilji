@@ -29,7 +29,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/dev/**").permitAll() // 1. /api/dev/** 경로를 최우선으로 허용
+                        .requestMatchers("/api/**").permitAll() // 1. /api/dev/** 경로를 최우선으로 허용
+                        .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/api/auth/**", "/error").permitAll()
                         .anyRequest().authenticated() // 2. 그 외 모든 요청은 인증 필요
                 )

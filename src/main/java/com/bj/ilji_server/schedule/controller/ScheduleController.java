@@ -34,7 +34,9 @@ public class ScheduleController {
             @AuthenticationPrincipal User user,
             @RequestParam(required = false) List<Long> tagIds) { // tagIds 파라미터 추가
         User currentUser = getAuthenticatedUser(user);
+        System.out.println(user);
         List<ScheduleResponse> schedules = scheduleService.getSchedulesForUser(currentUser, tagIds);
+        System.out.println(schedules);
         return ResponseEntity.ok(schedules);
     }
 
