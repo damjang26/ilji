@@ -29,10 +29,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/**").permitAll() // 1. /api/dev/** 경로를 최우선으로 허용
+                        .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/api/auth/**", "/error").permitAll()
-                        .requestMatchers("/api/schedules/**").authenticated()
-                        .requestMatchers("/api/firebase/**").authenticated()
-                        .anyRequest().authenticated()
+                        .anyRequest().authenticated() // 2. 그 외 모든 요청은 인증 필요
                 )
                 // 우리가 만든 JWT 인증 필터를 UsernamePasswordAuthenticationFilter 앞에 추가
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -44,7 +44,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // `localhost`의 모든 포트에서의 요청을 허용합니다.
-        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:*"));
+        // 3. 개발 중 에뮬레이터/실제 기기에서의 요청을 허용하기 위해 모든 Origin을 허용합니다.
+        //    프로덕션 환경에서는 실제 도메인으로 제한해야 합니다.
+        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
         configuration.setAllowCredentials(true);

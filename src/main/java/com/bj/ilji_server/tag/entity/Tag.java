@@ -31,6 +31,10 @@ public class Tag {
     @Column(nullable = false, length = 50)
     private String color;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TagVisibility visibility = TagVisibility.PRIVATE;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -40,9 +44,26 @@ public class Tag {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Tag(User user, String label, String color) {
+    public Tag(User user, String label, String color, TagVisibility visibility) {
         this.user = user;
         this.label = label;
         this.color = color;
+        this.visibility = (visibility != null) ? visibility : TagVisibility.PRIVATE;
+    }
+
+    public void updateVisibility(TagVisibility visibility) {
+        this.visibility = visibility;
+    }
+
+    public void update(com.bj.ilji_server.tag.dto.TagUpdateRequest request) {
+        if (request.getLabel() != null) {
+            this.label = request.getLabel();
+        }
+        if (request.getColor() != null) {
+            this.color = request.getColor();
+        }
+        if (request.getVisibility() != null) {
+            this.visibility = request.getVisibility();
+        }
     }
 }
