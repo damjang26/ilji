@@ -2,7 +2,7 @@ package com.bj.ilji_server.notification.web_socket;
 
 import com.bj.ilji_server.notification.dto.NotificationDto;
 import com.bj.ilji_server.notification.event.NotificationCreatedEvent;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.corundumstudio.socketio.SocketIOServer;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -10,20 +10,16 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Component
 public class NotificationWsNotifier {
 
-    private final SimpMessagingTemplate template;
+    private final SocketIOServer socketIOServer;
 
-    public NotificationWsNotifier(SimpMessagingTemplate template) {
-        this.template = template;
-    }
-
-    private String topic(Long recipientId) {
-        // 프론트 구독 경로: /topic/notifications/{userId}
-        return "/topic/notifications/" + recipientId;
+    public NotificationWsNotifier(SocketIOServer socketIOServer) {
+        this.socketIOServer = socketIOServer;
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onCreated(NotificationCreatedEvent e) {
-        // ⚠️ 래핑 없이 DTO를 그대로 보냅니다 (합의한 형태)
-        template.convertAndSend(topic(e.getRecipientId()), NotificationDto.from(e.getNotification()));
+        NotificationDto notificationDto = NotificationDto.from(e.getNotification());
+        // Send notification to the specific user's room
+        socketIOServer.getRoomOperations(e.getRecipientId().toString()).sendEvent("notification", notificationDto);
     }
 }

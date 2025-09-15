@@ -48,5 +48,11 @@ public class SocketModule {
             // 'sendEvent'의 첫 번째 인자는 클라이언트에서 받을 이벤트 이름입니다.
             server.getRoomOperations(data.getRoomId()).sendEvent("chatMessage", data);
         });
+
+        // 'joinNotificationRoom' 이벤트를 받을 리스너
+        server.addEventListener("joinNotificationRoom", Long.class, (client, userId, ackSender) -> {
+            log.info("Client [{}] joined notification room for user: {}", client.getSessionId(), userId);
+            client.joinRoom(userId.toString());
+        });
     }
 }
