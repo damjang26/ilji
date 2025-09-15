@@ -17,12 +17,12 @@ import java.util.List;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "i_log",
-        uniqueConstraints = {
-                @UniqueConstraint( // 한 유저가 같은 날짜에 중복 작성 방지
-                        name = "uq_ilog_user_profile_date",
-                        columnNames = {"user_profile_id", "log_date"}
-                )
-        }
+    uniqueConstraints = {
+        @UniqueConstraint( // 한 유저가 같은 날짜에 중복 작성 방지
+                name = "uq_ilog_user_profile_date",
+                columnNames = {"user_profile_id", "log_date"}
+        )
+    }
 )
 @DynamicInsert // @ColumnDefault가 제대로 동작하도록 추가
 public class ILog {

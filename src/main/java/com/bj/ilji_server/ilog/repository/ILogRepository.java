@@ -33,11 +33,11 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
 
 
     @Query(value = "SELECT i FROM ILog i JOIN FETCH i.userProfile " +
-            "WHERE i.userProfile.userId = :currentUserProfileId OR " +
-            "(i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility)",
-            countQuery = "SELECT count(i) FROM ILog i " +
-                    "WHERE i.userProfile.userId = :currentUserProfileId OR " +
-                    "(i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility)")
+                   "WHERE i.userProfile.userId = :currentUserProfileId OR " +
+                   "(i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility)",
+           countQuery = "SELECT count(i) FROM ILog i " +
+                        "WHERE i.userProfile.userId = :currentUserProfileId OR " +
+                        "(i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility)")
     Page<ILog> findFeedByUserProfileIdAndFollowingIds(
             @Param("currentUserProfileId") Long currentUserProfileId,
             @Param("followingProfileIds") List<Long> followingProfileIds,

@@ -67,7 +67,29 @@ dependencies {
     */
     implementation 'com.google.firebase:firebase-admin:9.2.0'
 
+
+    //    중복 알림 방지
+    implementation 'commons-codec:commons-codec'
+
+    // 실시간 반영 웹 소켓
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    // [옵션] WebSocket에 Spring Security 권한체크 쓸 때만
+    implementation 'org.springframework.security:spring-security-messaging'
+
+    // websocket for chat
+    implementation 'com.corundumstudio.socketio:netty-socketio:2.0.13'
+    // mongodb
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+
+    //    중복 알림 방지
+    implementation 'commons-codec:commons-codec'
+
+    // 실시간 반영 웹 소켓
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
+
 }
+
 
 tasks.named('test') {
     useJUnitPlatform()

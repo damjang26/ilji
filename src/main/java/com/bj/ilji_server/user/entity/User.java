@@ -1,5 +1,6 @@
 package com.bj.ilji_server.user.entity;
 
+import com.bj.ilji_server.user_profile.entity.UserProfile;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -38,6 +39,9 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String providerId;
 
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private UserProfile userProfile;
+
     @Builder
     public User(Long id, String email, String name, String picture, String provider, String providerId) {
         this.id = id;
@@ -52,6 +56,25 @@ public class User implements UserDetails {
         this.name = name;
         this.picture = picture;
         return this;
+    }
+
+    /**
+     * JPA 엔티티 생명주기 콜백 메소드.
+     * 데이터베이스에서 User 엔티티가 조회된 직후 자동으로 호출됩니다.
+     * UserProfile에 저장된 최신 정보(nickname, profileImage)가 있다면,
+     * 이 엔티티의 name과 picture 필드를 해당 값으로 덮어씁니다.
+     * 이를 통해 DTO 변환 시 항상 최신 프로필 정보가 반영됩니다.
+     */
+    @PostLoad
+    private void syncProfileToTransientFields() {
+        if (this.userProfile != null) {
+            if (this.userProfile.getNickname() != null && !this.userProfile.getNickname().isEmpty()) {
+                this.name = this.userProfile.getNickname();
+            }
+            if (this.userProfile.getProfileImage() != null && !this.userProfile.getProfileImage().isEmpty()) {
+                this.picture = this.userProfile.getProfileImage();
+            }
+        }
     }
 
     // --- UserDetails 구현 --- //
