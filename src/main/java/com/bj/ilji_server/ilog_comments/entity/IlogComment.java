@@ -54,6 +54,11 @@ public class IlogComment {
     @ColumnDefault("0") // DB 기본값과 일치
     private boolean isDeleted = false;
 
+    // 좋아요 수 (조회 성능 최적화용)
+    @Column(name = "like_count", nullable = false)
+    @ColumnDefault("0")
+    private int likeCount = 0;
+
     @Builder
     public IlogComment(ILog ilog, UserProfile userProfile, String content, IlogComment parent) {
         this.ilog = ilog;
@@ -74,5 +79,15 @@ public class IlogComment {
     public void softDelete() {
         this.content = "삭제된 댓글입니다.";
         this.isDeleted = true;
+    }
+
+    // ✅ [신규] 좋아요 수 증가 메서드
+    public void increaseLikeCount() {
+        this.likeCount++;
+    }
+
+    // ✅ [신규] 좋아요 수 감소 메서드
+    public void decreaseLikeCount() {
+        this.likeCount = Math.max(0, this.likeCount - 1);
     }
 }

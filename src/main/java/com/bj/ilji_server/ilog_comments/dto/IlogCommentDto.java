@@ -15,6 +15,7 @@ public class IlogCommentDto {
     private String content;
     private LocalDateTime createdAt;
     private WriterDto writer;
+    private int likeCount; // ✅ [신규] 좋아요 수
     private List<IlogCommentDto> replies; // 대댓글 목록
 
     // 엔티티를 DTO로 변환하는 정적 메서드
@@ -23,6 +24,7 @@ public class IlogCommentDto {
                 .commentId(comment.getId())
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
+                .likeCount(comment.getLikeCount()) // ✅ [신규] 좋아요 수 매핑
                 .writer(WriterDto.from(comment.getUserProfile()))
                 // 자식 댓글(대댓글)들도 재귀적으로 DTO로 변환
                 // 논리적으로 삭제되지 않은 자식 댓글만 DTO로 변환하여 목록에 포함
