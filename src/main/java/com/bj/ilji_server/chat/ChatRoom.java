@@ -1,30 +1,39 @@
 package com.bj.ilji_server.chat;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import jakarta.persistence.*;
+import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
-@Getter @Setter
+@Getter
+@Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "chat_room", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"user1Id", "user2Id"})
-})
+@Table(name = "chat_room")
 public class ChatRoom {
 
     @Id
     private String roomId;
 
-    private String user1Id;
-    private String user2Id;
+    private String roomName; // 채팅방 이름
 
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Enumerated(EnumType.STRING)
+    private RoomType roomType; // 채팅방 타입
+
+    // ChatRoom 하나는 여러 명의 참여자(ChatParticipant)를 가짐
+    @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<ChatParticipant> participants = new ArrayList<>();
+
+    private LocalDateTime createdAt;
+
+    public enum RoomType {
+        ONE_ON_ONE,
+        GROUP
+    }
 }

@@ -1,11 +1,14 @@
 package com.bj.ilji_server.chat;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, String> {
 
-    // user1Id 또는 user2Id가 주어진 userId와 일치하는 모든 채팅방을 찾습니다.
-    List<ChatRoom> findByUser1IdOrUser2Id(String user1Id, String user2Id);
+    // JPQL 쿼리를 사용하여 특정 사용자가 참여한 모든 채팅방을 찾습니다.
+    @Query("SELECT cr FROM ChatRoom cr JOIN cr.participants p WHERE p.user.id = :userId")
+    List<ChatRoom> findChatRoomsByUserId(@Param("userId") Long userId);
 }
