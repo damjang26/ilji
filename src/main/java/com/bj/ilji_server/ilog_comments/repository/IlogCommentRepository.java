@@ -19,22 +19,12 @@ public interface IlogCommentRepository extends JpaRepository<IlogComment, Long> 
      * @param ilogId 일기 ID
      * @return 정렬된 댓글 목록
      */
-    // ✅ [개선] FETCH JOIN으로 N+1 문제를 방지하고, 논리적 삭제(isDeleted)된 댓글을 필터링합니다.
-    // 1. SELECT DISTINCT c: Fetch Join으로 발생할 수 있는 중복된 부모 댓글(c)을 제거합니다.
-    // 2. LEFT JOIN FETCH c.user: 댓글 작성자 정보를 함께 조회합니다.
-    // 3. LEFT JOIN IlogCommentLike l: 좋아요 수를 계산하기 위해 조인합니다.
-    // 4. WHERE 조건:
-    //    - c.ilog.id = :ilogId AND c.parent IS NULL: 특정 일기의 최상위 댓글만 대상으로 합니다.
-    //    - (c.isDeleted = false OR ...): 삭제되지 않았거나, 삭제되었더라도 활성 자식 댓글이 있는 경우 스레드 유지를 위해 포함합니다.
-    // 5. GROUP BY: 좋아요 수를 세기 위해 그룹화합니다.
-    // 6. ORDER BY: 좋아요 수, 최신순으로 정렬합니다.
+    // ✅ [개선] like_count 컬럼을 직접 사용하여 정렬하도록 쿼리 변경 (성능 향상)
     @Query("SELECT DISTINCT c FROM IlogComment c " +
            "LEFT JOIN FETCH c.userProfile " +
-           "LEFT JOIN IlogCommentLike l ON l.ilogComment = c " +
            "WHERE c.ilog.id = :ilogId AND c.parent IS NULL " +
            "AND (c.isDeleted = false OR EXISTS (SELECT 1 FROM c.children ch WHERE ch.isDeleted = false)) " +
-           "GROUP BY c, c.id, c.userProfile.userId, c.createdAt " + // GROUP BY 절에 SELECT 및 ORDER BY에 사용된 모든 non-aggregate 컬럼 포함
-           "ORDER BY COUNT(l) DESC, c.createdAt DESC")
+           "ORDER BY c.likeCount DESC, c.createdAt DESC")
     List<IlogComment> findTopLevelCommentsByIlogIdOrderByLikes(@Param("ilogId") Long ilogId);
 
     /**
@@ -51,4 +41,12 @@ public interface IlogCommentRepository extends JpaRepository<IlogComment, Long> 
 
     @Query("SELECT c FROM IlogComment c JOIN FETCH c.userProfile WHERE c.id = :commentId")
     Optional<IlogComment> findByIdWithUser(@Param("commentId") Long commentId);
+
+    /**
+     * 특정 일기에서 가장 좋아요가 많은 최상위 댓글 1개를 조회합니다. (베스트 댓글 미리보기용)
+     * 삭제되지 않은 댓글만 대상으로 합니다.
+     * @param ilogId 일기 ID
+     * @return 가장 좋아요가 많은 댓글 Optional
+     */
+    Optional<IlogComment> findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(Long ilogId);
 }

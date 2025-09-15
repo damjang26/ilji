@@ -107,11 +107,13 @@ public class ILog {
         this.likeCount = Math.max(0, this.likeCount - 1);
     }
 
-    public void increaseComment() {
+    // ✅ [개선] 메서드 이름을 필드명 및 다른 메서드와 일관성 있게 변경합니다.
+    public void increaseCommentCount() {
         this.commentCount++;
     }
 
-    public void decreaseComment() {
+    // ✅ [개선] 메서드 이름을 필드명 및 다른 메서드와 일관성 있게 변경합니다.
+    public void decreaseCommentCount() {
         this.commentCount = Math.max(0, this.commentCount - 1);
     }
 

@@ -77,7 +77,10 @@ public class IlogCommentService {
         // 4. 생성된 댓글을 DB에 저장합니다.
         IlogComment savedComment = ilogCommentRepository.save(newComment);
 
-        // 5. 저장된 엔티티를 DTO로 변환하여 반환합니다.
+        // 5. 일기의 댓글 수를 1 증가시킵니다.
+        iLog.increaseCommentCount();
+
+        // 6. 저장된 엔티티를 DTO로 변환하여 반환합니다.
         return IlogCommentDto.from(savedComment);
     }
 
@@ -105,6 +108,9 @@ public class IlogCommentService {
             // 4. 자식 댓글이 있으면 논리적 삭제(soft delete)를 수행합니다.
             comment.softDelete();
         } else {
+            // 댓글이 물리적으로 삭제되기 전에, 해당 일기의 댓글 수를 1 감소시킵니다.
+            comment.getIlog().decreaseCommentCount();
+
             // 5. 자식 댓글이 없으면 물리적 삭제(hard delete)를 수행합니다.
             //    만약 이 댓글의 부모가 논리적으로 삭제된 상태이고, 이 댓글이 마지막 자식이었다면,
             //    부모 댓글도 함께 삭제하는 로직을 추가할 수 있습니다. (선택적 심화 과정)

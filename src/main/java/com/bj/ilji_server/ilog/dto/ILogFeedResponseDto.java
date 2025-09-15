@@ -1,6 +1,7 @@
 package com.bj.ilji_server.ilog.dto;
 
 import com.bj.ilji_server.ilog.entity.ILog;
+import com.bj.ilji_server.ilog_comments.entity.IlogComment;
 import com.bj.ilji_server.user_profile.entity.UserProfile;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,9 +39,29 @@ public class ILogFeedResponseDto {
 
 
     private final boolean isLiked;
+    private final BestCommentDto bestComment; // ✅ [신규] 베스트 댓글 정보
 
+    // ✅ [신규] 베스트 댓글 정보를 담는 내부 DTO
+    @Getter
+    @Builder
+    public static class BestCommentDto {
+        private final Long commentId;
+        private final String content;
+        private final String writerNickname;
 
-    public static ILogFeedResponseDto fromEntity(ILog iLog, ObjectMapper objectMapper, Long currentUserId) {
+        public static BestCommentDto fromEntity(IlogComment comment) {
+            if (comment == null) {
+                return null;
+            }
+            return BestCommentDto.builder()
+                    .commentId(comment.getId())
+                    .content(comment.getContent())
+                    .writerNickname(comment.getUserProfile().getNickname())
+                    .build();
+        }
+    }
+
+    public static ILogFeedResponseDto fromEntity(ILog iLog, IlogComment bestComment, ObjectMapper objectMapper, Long currentUserId) {
         List<String> imageUrls = Collections.emptyList();
         if (iLog.getImgUrl() != null && !iLog.getImgUrl().isBlank()) {
             try {
@@ -77,6 +98,7 @@ public class ILogFeedResponseDto {
                 .logDate(iLog.getLogDate())
                 .createdAt(iLog.getCreatedAt())
                 .isLiked(isLiked)
+                .bestComment(BestCommentDto.fromEntity(bestComment)) // ✅ [신규] 베스트 댓글 DTO 생성
                 .build();
     }
 }

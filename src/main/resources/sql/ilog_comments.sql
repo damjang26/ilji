@@ -13,6 +13,8 @@ CREATE TABLE ilog_comments (
                                created_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
     -- 삭제 여부 (논리적 삭제용)
                                is_deleted NUMBER(1) DEFAULT 0 NOT NULL,
+    -- 좋아요 수 (조회 성능 최적화용)
+                               like_count NUMBER(10) DEFAULT 0 NOT NULL,
 
     -- 제약 조건
                                CONSTRAINT fk_comment_ilog FOREIGN KEY (ilog_id) REFERENCES i_log(id) ON DELETE CASCADE,
