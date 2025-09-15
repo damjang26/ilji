@@ -5,7 +5,8 @@ import com.bj.ilji_server.ilog_comments.entity.IlogComment;
 import com.bj.ilji_server.user_profile.entity.UserProfile;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.*;
+import lombok.Builder;
+import lombok.Getter;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -14,26 +15,28 @@ import java.util.Collections;
 import java.util.List;
 
 @Getter
-// @Setter를 제거하여 DTO를 불변(Immutable) 객체로 만듭니다.
-// 생성자를 통해서만 값이 할당되므로 데이터의 일관성을 보장할 수 있습니다.
-@Builder
-public class ILogResponse {
+@Builder // 생성자가 아닌 클래스 레벨로 이동하여 final 필드와 함께 사용합니다.
+public class ILogFeedResponseDto {
 
     private final Long id;
-    // ✅ [수정] 요청하신 대로 작성자 정보를 구체적인 필드로 추가합니다.
+    // ✅ [수정] UserFeedDto 대신 작성자 정보를 최상위 필드로 평탄화합니다.
     private final Long writerId;
     private final String writerNickname;
     private final String writerProfileImage;
-
-    private final LocalDate logDate;
     private final String content;
-    private final List<String> images; // JSON 문자열 대신 이미지 URL 리스트
-    private final ILog.Visibility visibility;
+    private final List<String> images;
+    // ✅ [추가] 지적해주신 대로, 피드에서도 태그, 좋아요, 댓글 수를 보여주기 위해 필드를 추가합니다.
     private final String friendTags;
     private final String tags;
     private final int likeCount;
     private final int commentCount;
+
+
+
+    private final ILog.Visibility visibility;
+    private final LocalDate logDate; // ✅ [추가] 일기 기록 날짜 필드
     private final LocalDateTime createdAt;
+
 
     private final boolean isLiked;
     private final BestCommentDto bestComment; // ✅ [신규] 베스트 댓글 정보
@@ -57,42 +60,43 @@ public class ILogResponse {
                     .build();
         }
     }
-    // Entity → DTO 변환 편의 메서드
-    public static ILogResponse fromEntity(ILog ilog, IlogComment bestComment, ObjectMapper objectMapper, Long currentUserId) {
+
+    public static ILogFeedResponseDto fromEntity(ILog iLog, IlogComment bestComment, ObjectMapper objectMapper, Long currentUserId) {
         List<String> imageUrls = Collections.emptyList();
-        if (ilog.getImgUrl() != null && !ilog.getImgUrl().isBlank()) {
+        if (iLog.getImgUrl() != null && !iLog.getImgUrl().isBlank()) {
             try {
-                imageUrls = objectMapper.readValue(ilog.getImgUrl(), new TypeReference<>() {});
+                imageUrls = objectMapper.readValue(iLog.getImgUrl(), new TypeReference<>() {});
             } catch (IOException e) {
-                // 이미지 URL 파싱 실패 시 로그를 남겨 문제를 추적할 수 있도록 합니다.
-                System.err.println("Failed to parse image URLs: " + e.getMessage());
+                // ✅ [개선] 이미지 URL 파싱 실패 시 로그를 남겨 문제를 추적할 수 있도록 합니다.
+                System.err.println("Failed to parse image URLs for feed: " + e.getMessage());
             }
         }
 
-        // UserProfile이 null일 경우를 대비한 방어 코드
-        UserProfile userProfile = ilog.getUserProfile();
+        // ✅ [개선] UserProfile이 null일 경우를 대비한 방어 코드
+        UserProfile userProfile = iLog.getUserProfile();
         Long writerId = (userProfile != null) ? userProfile.getUserId() : null;
         String writerNickname = (userProfile != null) ? userProfile.getNickname() : "알 수 없는 사용자";
         String writerProfileImage = (userProfile != null) ? userProfile.getProfileImage() : null;
-        boolean isLiked = currentUserId != null && ilog.getLikes().stream()
+
+        boolean isLiked = currentUserId != null && iLog.getLikes().stream()
                 .anyMatch(like -> like.getUserProfile().getUserId().equals(currentUserId));
 
-        return ILogResponse.builder()
-                .id(ilog.getId())
-                // ✅ [수정] UserProfile 엔티티에서 추출한 작성자 정보를 DTO에 담습니다.
+
+        return ILogFeedResponseDto.builder()
+                .id(iLog.getId())
                 .writerId(writerId)
                 .writerNickname(writerNickname)
                 .writerProfileImage(writerProfileImage)
-
-                .logDate(ilog.getLogDate())
-                .content(ilog.getContent())
-                .images(imageUrls)
-                .visibility(ilog.getVisibility())
-                .friendTags(ilog.getFriendTags())
-                .tags(ilog.getTags())
-                .likeCount(ilog.getLikeCount())
-                .commentCount(ilog.getCommentCount())
-                .createdAt(ilog.getCreatedAt())
+                .content(iLog.getContent())
+                .images(imageUrls) // JSON 문자열을 List로 변환
+                // ✅ [추가] ILog 엔티티에서 빠진 필드 정보를 채워줍니다.
+                .friendTags(iLog.getFriendTags())
+                .tags(iLog.getTags())
+                .likeCount(iLog.getLikeCount())
+                .commentCount(iLog.getCommentCount())
+                .visibility(iLog.getVisibility())
+                .logDate(iLog.getLogDate())
+                .createdAt(iLog.getCreatedAt())
                 .isLiked(isLiked)
                 .bestComment(BestCommentDto.fromEntity(bestComment)) // ✅ [신규] 베스트 댓글 DTO 생성
                 .build();
