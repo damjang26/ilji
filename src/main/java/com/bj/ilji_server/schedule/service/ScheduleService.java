@@ -12,12 +12,14 @@ import com.bj.ilji_server.schedule.dto.ScheduleResponse;
 import com.bj.ilji_server.schedule.repository.ScheduleRepository;
 import com.bj.ilji_server.user.entity.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -27,22 +29,6 @@ public class ScheduleService implements ScheduleReader {
 
     private final ScheduleRepository scheduleRepository;
     private final TagRepository tagRepository;
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ScheduleBrief> getSchedulesForDate(Long userId, LocalDate date, int limit) {
-        return scheduleRepository.findTopNSchedulesByUserIdAndDate(userId, date)
-                .stream()
-                .map(ScheduleBrief::new)
-                .limit(limit)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public int countSchedulesForDate(Long userId, LocalDate date) {
-        return scheduleRepository.countByUserIdAndDate(userId, date);
-    }
 
     @Transactional(readOnly = true)
     public List<ScheduleResponse> getSchedulesForUser(User user, List<Long> tagIds) {
@@ -125,5 +111,31 @@ public class ScheduleService implements ScheduleReader {
         tag.update(request);
 
         return new TagResponse(tag);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ScheduleBrief> getSchedulesForDate(Long userId, LocalDate date, int limit) {
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay = date.plusDays(1).atStartOfDay();
+        List<Schedule> schedules = scheduleRepository.findByUserIdAndStartTimeBetweenOrderByStartTimeAsc(userId, startOfDay, endOfDay, PageRequest.of(0, limit));
+
+        return schedules.stream()
+                .map(schedule -> new ScheduleBrief(
+                        schedule.getId(),
+                        schedule.getTitle(),
+                        schedule.getStartTime(),
+                        schedule.getEndTime(),
+                        "/schedule/" + schedule.getId() // 예시 링크
+                ))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public int countSchedulesForDate(Long userId, LocalDate date) {
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay = date.plusDays(1).atStartOfDay();
+        return scheduleRepository.countByUserIdAndStartTimeBetween(userId, startOfDay, endOfDay);
     }
 }

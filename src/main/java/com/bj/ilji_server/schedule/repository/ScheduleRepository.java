@@ -1,12 +1,14 @@
 package com.bj.ilji_server.schedule.repository;
 
 import com.bj.ilji_server.schedule.entity.Schedule;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import com.bj.ilji_server.tag.entity.Tag;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
@@ -21,4 +23,8 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
     @Modifying
     @Query("UPDATE Schedule s SET s.tag = null WHERE s.tag = :tag")
     void disassociateTagFromSchedules(@Param("tag") Tag tag);
+
+    List<Schedule> findByUserIdAndStartTimeBetweenOrderByStartTimeAsc(Long userId, LocalDateTime start, LocalDateTime end, Pageable pageable);
+
+    int countByUserIdAndStartTimeBetween(Long userId, LocalDateTime start, LocalDateTime end);
 }
