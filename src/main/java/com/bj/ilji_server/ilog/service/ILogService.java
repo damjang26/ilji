@@ -58,19 +58,25 @@ public class ILogService {
 
     // 🆕 [추가] 특정 사용자의 ID로 일기 목록 조회 (친구 마이페이지용)
     @Transactional(readOnly = true)
-    public List<ILogResponse> getLogsByUserId(Long userId) {
+    // ✅ [수정] 'isLiked' 상태를 확인하기 위해 현재 사용자(currentUser) 정보를 함께 받습니다.
+    public List<ILogResponse> getLogsByUserId(Long userId, User currentUser) {
         // 1. userId로 User를 찾습니다. User가 없다면 예외를 발생시킵니다.
-        User user = userRepository.findById(userId)
+        User targetUser = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
 
         // 2. 해당 사용자의 UserProfile ID와 '공개(PUBLIC)' 상태인 일기만 조회합니다.
         //    친구의 비공개 일기는 보여주면 안 되기 때문입니다.
         //    (findByProfileAndVisibility는 다음 단계에서 Repository에 추가할 예정입니다)
-        List<ILog> logs = ilogRepository.findByProfileAndVisibility(user.getUserProfile().getUserId(), ILog.Visibility.PUBLIC);
+        List<ILog> logs = ilogRepository.findByProfileAndVisibility(targetUser.getUserProfile().getUserId(), ILog.Visibility.PUBLIC);
 
         // 3. 조회된 ILog 엔티티 목록을 ILogResponse DTO 목록으로 변환하여 반환합니다.
+        // ✅ [수정] fromEntity 메서드의 시그니처에 맞게 베스트 댓글과 현재 사용자 ID를 전달합니다.
         return logs.stream()
-                .map(iLog -> ILogResponse.fromEntity(iLog, objectMapper))
+                .map(iLog -> {
+                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
+                    // 'isLiked'는 현재 접속한 사용자를 기준으로 판단해야 하므로 currentUser의 ID를 넘깁니다.
+                    return ILogResponse.fromEntity(iLog, bestComment, objectMapper, currentUser.getUserProfile().getUserId());
+                })
                 .collect(Collectors.toList());
     }
 

@@ -56,10 +56,12 @@ public class ILogController {
     // 🆕 [추가] 특정 사용자의 모든 일기 조회 (친구 마이페이지용)
     // ---------------------------------------------------
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<ILogResponse>> getLogsByUserId(@PathVariable Long userId) {
-        // 서비스에 userId를 직접 전달하여 해당 사용자의 로그를 가져옵니다.
-        // 이 때, 서비스-리포지토리에서는 공개된 일기만 가져오도록 로직이 필요할 수 있습니다.
-        List<ILogResponse> logs = ilogService.getLogsByUserId(userId);
+    public ResponseEntity<List<ILogResponse>> getLogsByUserId(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal User currentUser // ✅ [추가] 현재 로그인한 사용자 정보를 가져옵니다.
+    ) {
+        // ✅ [수정] 서비스에 조회 대상 ID(userId)와 현재 사용자 정보(currentUser)를 함께 전달합니다.
+        List<ILogResponse> logs = ilogService.getLogsByUserId(userId, currentUser);
         return ResponseEntity.ok(logs);
     }
 
