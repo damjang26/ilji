@@ -32,7 +32,8 @@ public class UserProfile {
     @JsonBackReference
     private User user;
 
-    @Column(name = "NICKNAME", length = 50)
+    // unique = true 속성을 추가하여 데이터베이스 수준에서 닉네임 중복을 방지합니다.
+    @Column(name = "NICKNAME", length = 50, unique = true)
     private String nickname;
 
     @Column(name = "BIRTHDATE")
@@ -113,5 +114,13 @@ public class UserProfile {
             this.phoneNumber = request.getPhoneNumber();
         }
         this.accountPrivate = request.isPrivate();
+    }
+
+    /**
+     * 닉네임만 개별적으로 업데이트하는 비즈니스 로직 메서드입니다.
+     * @param nickname 새로운 닉네임
+     */
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
     }
 }

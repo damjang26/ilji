@@ -7,6 +7,8 @@ import com.bj.ilji_server.ilog.dto.ILogFeedResponseDto;
 import com.bj.ilji_server.ilog.dto.ILogUpdateRequest;
 import com.bj.ilji_server.ilog.dto.ILogResponse;
 import com.bj.ilji_server.ilog.entity.ILog;
+import com.bj.ilji_server.ilog_comments.entity.IlogComment;
+import com.bj.ilji_server.ilog_comments.repository.IlogCommentRepository;
 import com.bj.ilji_server.ilog.repository.ILogRepository;
 import com.bj.ilji_server.user.entity.User;
 import com.bj.ilji_server.user.repository.UserRepository;
@@ -35,6 +37,7 @@ public class ILogService {
     private final ILogRepository ilogRepository;
     // ✅ [추가] 의존성 주입: User 정보 조회, Firebase 연동, JSON 변환을 위해 추가합니다.
     private final UserRepository userRepository;
+    private final IlogCommentRepository ilogCommentRepository;
     private final FriendRepository friendRepository;
     private final FirebaseService firebaseService;
     private final ObjectMapper objectMapper;
@@ -46,25 +49,34 @@ public class ILogService {
         // ILog와 UserProfile을 한 번의 쿼리로 함께 조회하여 성능을 최적화합니다.
         List<ILog> logs = ilogRepository.findAllByUserProfileUserIdWithUserProfile(user.getUserProfile().getUserId());
         return logs.stream()
-                .map(iLog -> ILogResponse.fromEntity(iLog, objectMapper))
+                .map(iLog -> {
+                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
+                    return ILogResponse.fromEntity(iLog, bestComment, objectMapper, user.getUserProfile().getUserId());
+                })
                 .collect(Collectors.toList());
     }
 
     // 🆕 [추가] 특정 사용자의 ID로 일기 목록 조회 (친구 마이페이지용)
     @Transactional(readOnly = true)
-    public List<ILogResponse> getLogsByUserId(Long userId) {
+    // ✅ [수정] 'isLiked' 상태를 확인하기 위해 현재 사용자(currentUser) 정보를 함께 받습니다.
+    public List<ILogResponse> getLogsByUserId(Long userId, User currentUser) {
         // 1. userId로 User를 찾습니다. User가 없다면 예외를 발생시킵니다.
-        User user = userRepository.findById(userId)
+        User targetUser = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
 
         // 2. 해당 사용자의 UserProfile ID와 '공개(PUBLIC)' 상태인 일기만 조회합니다.
         //    친구의 비공개 일기는 보여주면 안 되기 때문입니다.
         //    (findByProfileAndVisibility는 다음 단계에서 Repository에 추가할 예정입니다)
-        List<ILog> logs = ilogRepository.findByProfileAndVisibility(user.getUserProfile().getUserId(), ILog.Visibility.PUBLIC);
+        List<ILog> logs = ilogRepository.findByProfileAndVisibility(targetUser.getUserProfile().getUserId(), ILog.Visibility.PUBLIC);
 
         // 3. 조회된 ILog 엔티티 목록을 ILogResponse DTO 목록으로 변환하여 반환합니다.
+        // ✅ [수정] fromEntity 메서드의 시그니처에 맞게 베스트 댓글과 현재 사용자 ID를 전달합니다.
         return logs.stream()
-                .map(iLog -> ILogResponse.fromEntity(iLog, objectMapper))
+                .map(iLog -> {
+                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
+                    // 'isLiked'는 현재 접속한 사용자를 기준으로 판단해야 하므로 currentUser의 ID를 넘깁니다.
+                    return ILogResponse.fromEntity(iLog, bestComment, objectMapper, currentUser.getUserProfile().getUserId());
+                })
                 .collect(Collectors.toList());
     }
 
@@ -98,7 +110,10 @@ public class ILogService {
         );
 
         // 5. Page<ILog>를 Page<ILogResponse>로 변환하여 반환한다.
-        return feedPage.map(iLog -> ILogFeedResponseDto.fromEntity(iLog, objectMapper));
+        return feedPage.map(iLog -> {
+            IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
+            return ILogFeedResponseDto.fromEntity(iLog, bestComment, objectMapper, currentUser.getUserProfile().getUserId());
+        });
     }
 
     // ✅ [수정] 일기 등록 메서드를 이미지 파일(MultipartFile)을 함께 처리하도록 변경합니다.
@@ -136,7 +151,8 @@ public class ILogService {
         ILog savedIlog = ilogRepository.save(newIlog);
 
         // 5. 저장된 Entity를 Response DTO로 변환하여 반환
-        return ILogResponse.fromEntity(savedIlog, objectMapper);
+        // 새로 생성된 일기에는 댓글이 없으므로 bestComment는 null 입니다.
+        return ILogResponse.fromEntity(savedIlog, null, objectMapper, user.getUserProfile().getUserId());
     }
 
     // 특정 날짜 일기 조회
@@ -144,7 +160,10 @@ public class ILogService {
     public ILogResponse getLogByDate(User user, LocalDate date) {
         // ✅ [개선] Optional과 map을 사용하여 코드를 더 간결하고 Null-safe하게 만듭니다.
         return ilogRepository.findByUserProfileUserIdAndLogDate(user.getUserProfile().getUserId(), date)
-                .map(log -> ILogResponse.fromEntity(log, objectMapper))
+                .map(log -> {
+                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(log.getId()).orElse(null);
+                    return ILogResponse.fromEntity(log, bestComment, objectMapper, user.getUserProfile().getUserId());
+                })
                 .orElse(null);
     }
 
@@ -153,7 +172,10 @@ public class ILogService {
     public ILogResponse getPreviousLog(User user, LocalDate date) {
         // ✅ [개선] Optional과 map을 사용하여 코드를 더 간결하고 Null-safe하게 만듭니다.
         return ilogRepository.findFirstByUserProfileUserIdAndLogDateLessThanOrderByLogDateDesc(user.getUserProfile().getUserId(), date)
-                .map(log -> ILogResponse.fromEntity(log, objectMapper))
+                .map(log -> {
+                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(log.getId()).orElse(null);
+                    return ILogResponse.fromEntity(log, bestComment, objectMapper, user.getUserProfile().getUserId());
+                })
                 .orElse(null);
     }
 
@@ -162,7 +184,10 @@ public class ILogService {
     public ILogResponse getNextLog(User user, LocalDate date) {
         // ✅ [개선] Optional과 map을 사용하여 코드를 더 간결하고 Null-safe하게 만듭니다.
         return ilogRepository.findFirstByUserProfileUserIdAndLogDateGreaterThanOrderByLogDateAsc(user.getUserProfile().getUserId(), date)
-                .map(log -> ILogResponse.fromEntity(log, objectMapper))
+                .map(log -> {
+                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(log.getId()).orElse(null);
+                    return ILogResponse.fromEntity(log, bestComment, objectMapper, user.getUserProfile().getUserId());
+                })
                 .orElse(null);
     }
 
@@ -255,7 +280,8 @@ public class ILogService {
 
         // 4. 변경된 엔티티를 Response DTO로 변환하여 반환합니다. (@Transactional에 의해 DB에는 자동 저장됩니다.)
         // ✅ [수정] fromEntity 메서드에 ObjectMapper를 전달하여 JSON 필드를 올바르게 처리하도록 수정합니다.
-        return ILogResponse.fromEntity(log, objectMapper);
+        IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(log.getId()).orElse(null);
+        return ILogResponse.fromEntity(log, bestComment, objectMapper, user.getUserProfile().getUserId());
     }
 
 }

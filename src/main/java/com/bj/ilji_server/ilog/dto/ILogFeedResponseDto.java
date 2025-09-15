@@ -1,6 +1,7 @@
 package com.bj.ilji_server.ilog.dto;
 
 import com.bj.ilji_server.ilog.entity.ILog;
+import com.bj.ilji_server.ilog_comments.entity.IlogComment;
 import com.bj.ilji_server.user_profile.entity.UserProfile;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -29,10 +31,37 @@ public class ILogFeedResponseDto {
     private final int likeCount;
     private final int commentCount;
 
+
+
     private final ILog.Visibility visibility;
+    private final LocalDate logDate; // ✅ [추가] 일기 기록 날짜 필드
     private final LocalDateTime createdAt;
 
-    public static ILogFeedResponseDto fromEntity(ILog iLog, ObjectMapper objectMapper) {
+
+    private final boolean isLiked;
+    private final BestCommentDto bestComment; // ✅ [신규] 베스트 댓글 정보
+
+    // ✅ [신규] 베스트 댓글 정보를 담는 내부 DTO
+    @Getter
+    @Builder
+    public static class BestCommentDto {
+        private final Long commentId;
+        private final String content;
+        private final String writerNickname;
+
+        public static BestCommentDto fromEntity(IlogComment comment) {
+            if (comment == null) {
+                return null;
+            }
+            return BestCommentDto.builder()
+                    .commentId(comment.getId())
+                    .content(comment.getContent())
+                    .writerNickname(comment.getUserProfile().getNickname())
+                    .build();
+        }
+    }
+
+    public static ILogFeedResponseDto fromEntity(ILog iLog, IlogComment bestComment, ObjectMapper objectMapper, Long currentUserId) {
         List<String> imageUrls = Collections.emptyList();
         if (iLog.getImgUrl() != null && !iLog.getImgUrl().isBlank()) {
             try {
@@ -49,6 +78,10 @@ public class ILogFeedResponseDto {
         String writerNickname = (userProfile != null) ? userProfile.getNickname() : "알 수 없는 사용자";
         String writerProfileImage = (userProfile != null) ? userProfile.getProfileImage() : null;
 
+        boolean isLiked = currentUserId != null && iLog.getLikes().stream()
+                .anyMatch(like -> like.getUserProfile().getUserId().equals(currentUserId));
+
+
         return ILogFeedResponseDto.builder()
                 .id(iLog.getId())
                 .writerId(writerId)
@@ -62,7 +95,10 @@ public class ILogFeedResponseDto {
                 .likeCount(iLog.getLikeCount())
                 .commentCount(iLog.getCommentCount())
                 .visibility(iLog.getVisibility())
+                .logDate(iLog.getLogDate())
                 .createdAt(iLog.getCreatedAt())
+                .isLiked(isLiked)
+                .bestComment(BestCommentDto.fromEntity(bestComment)) // ✅ [신규] 베스트 댓글 DTO 생성
                 .build();
     }
 }
