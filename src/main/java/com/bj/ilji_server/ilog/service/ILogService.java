@@ -46,7 +46,7 @@ public class ILogService {
         // ILog와 UserProfile을 한 번의 쿼리로 함께 조회하여 성능을 최적화합니다.
         List<ILog> logs = ilogRepository.findAllByUserProfileUserIdWithUserProfile(user.getUserProfile().getUserId());
         return logs.stream()
-                .map(iLog -> ILogResponse.fromEntity(iLog, objectMapper))
+                .map(iLog -> ILogResponse.fromEntity(iLog, objectMapper, user.getUserProfile().getUserId()))
                 .collect(Collectors.toList());
     }
 
@@ -98,7 +98,7 @@ public class ILogService {
         );
 
         // 5. Page<ILog>를 Page<ILogResponse>로 변환하여 반환한다.
-        return feedPage.map(iLog -> ILogFeedResponseDto.fromEntity(iLog, objectMapper));
+        return feedPage.map(iLog -> ILogFeedResponseDto.fromEntity(iLog, objectMapper,currentUser.getUserProfile().getUserId()));
     }
 
     // ✅ [수정] 일기 등록 메서드를 이미지 파일(MultipartFile)을 함께 처리하도록 변경합니다.
@@ -136,7 +136,7 @@ public class ILogService {
         ILog savedIlog = ilogRepository.save(newIlog);
 
         // 5. 저장된 Entity를 Response DTO로 변환하여 반환
-        return ILogResponse.fromEntity(savedIlog, objectMapper);
+        return ILogResponse.fromEntity(savedIlog, objectMapper, user.getUserProfile().getUserId());
     }
 
     // 특정 날짜 일기 조회
@@ -144,7 +144,7 @@ public class ILogService {
     public ILogResponse getLogByDate(User user, LocalDate date) {
         // ✅ [개선] Optional과 map을 사용하여 코드를 더 간결하고 Null-safe하게 만듭니다.
         return ilogRepository.findByUserProfileUserIdAndLogDate(user.getUserProfile().getUserId(), date)
-                .map(log -> ILogResponse.fromEntity(log, objectMapper))
+                .map(log -> ILogResponse.fromEntity(log, objectMapper, user.getUserProfile().getUserId()))
                 .orElse(null);
     }
 
@@ -153,7 +153,7 @@ public class ILogService {
     public ILogResponse getPreviousLog(User user, LocalDate date) {
         // ✅ [개선] Optional과 map을 사용하여 코드를 더 간결하고 Null-safe하게 만듭니다.
         return ilogRepository.findFirstByUserProfileUserIdAndLogDateLessThanOrderByLogDateDesc(user.getUserProfile().getUserId(), date)
-                .map(log -> ILogResponse.fromEntity(log, objectMapper))
+                .map(log -> ILogResponse.fromEntity(log, objectMapper, user.getUserProfile().getUserId()))
                 .orElse(null);
     }
 
@@ -162,7 +162,7 @@ public class ILogService {
     public ILogResponse getNextLog(User user, LocalDate date) {
         // ✅ [개선] Optional과 map을 사용하여 코드를 더 간결하고 Null-safe하게 만듭니다.
         return ilogRepository.findFirstByUserProfileUserIdAndLogDateGreaterThanOrderByLogDateAsc(user.getUserProfile().getUserId(), date)
-                .map(log -> ILogResponse.fromEntity(log, objectMapper))
+                .map(log -> ILogResponse.fromEntity(log, objectMapper, user.getUserProfile().getUserId()))
                 .orElse(null);
     }
 
@@ -255,7 +255,7 @@ public class ILogService {
 
         // 4. 변경된 엔티티를 Response DTO로 변환하여 반환합니다. (@Transactional에 의해 DB에는 자동 저장됩니다.)
         // ✅ [수정] fromEntity 메서드에 ObjectMapper를 전달하여 JSON 필드를 올바르게 처리하도록 수정합니다.
-        return ILogResponse.fromEntity(log, objectMapper);
+        return ILogResponse.fromEntity(log, objectMapper, user.getUserProfile().getUserId());
     }
 
 }
