@@ -43,7 +43,7 @@ public class NotificationController {
                 .build();
     }
 
-    @PatchMapping("/{id}/read")
+    @PostMapping("/{id}/read")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void markRead(@AuthenticationPrincipal User user, @PathVariable Long id) {
         service.markRead(id, user.getId());
