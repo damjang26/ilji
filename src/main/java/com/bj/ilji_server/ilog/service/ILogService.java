@@ -56,6 +56,24 @@ public class ILogService {
                 .collect(Collectors.toList());
     }
 
+    // 🆕 [추가] 특정 사용자의 ID로 일기 목록 조회 (친구 마이페이지용)
+    @Transactional(readOnly = true)
+    public List<ILogResponse> getLogsByUserId(Long userId) {
+        // 1. userId로 User를 찾습니다. User가 없다면 예외를 발생시킵니다.
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
+
+        // 2. 해당 사용자의 UserProfile ID와 '공개(PUBLIC)' 상태인 일기만 조회합니다.
+        //    친구의 비공개 일기는 보여주면 안 되기 때문입니다.
+        //    (findByProfileAndVisibility는 다음 단계에서 Repository에 추가할 예정입니다)
+        List<ILog> logs = ilogRepository.findByProfileAndVisibility(user.getUserProfile().getUserId(), ILog.Visibility.PUBLIC);
+
+        // 3. 조회된 ILog 엔티티 목록을 ILogResponse DTO 목록으로 변환하여 반환합니다.
+        return logs.stream()
+                .map(iLog -> ILogResponse.fromEntity(iLog, objectMapper))
+                .collect(Collectors.toList());
+    }
+
     @Transactional(readOnly = true)
     public Page<ILogFeedResponseDto> getFeedForUser(User currentUser, int page, int size) {
         // ✅ [수정] pageable 객체를 먼저 생성해야 if문에서 사용할 수 있습니다.

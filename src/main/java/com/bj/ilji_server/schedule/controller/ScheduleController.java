@@ -11,9 +11,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.util.StringUtils; // Import for StringUtils
 
 import java.time.LocalDate;
+import java.util.ArrayList; // Import for ArrayList
+import java.util.Arrays; // Import for Arrays
 import java.util.List;
+import java.util.stream.Collectors; // Import for Collectors
 
 @RestController
 @RequestMapping("/api/schedules")
@@ -37,14 +41,35 @@ public class ScheduleController {
 
     /**
      * 리스트 뷰를 위한 태그별 일정 조회 (반복 미포함)
-     * GET /api/schedules?tagIds=1,2,3
+     * GET /api/schedules?tagIds=1,2,3,null
      */
     @GetMapping
     public ResponseEntity<List<ScheduleResponse>> getSchedulesForUser(
             @AuthenticationPrincipal User user,
-            @RequestParam(value = "tagIds", required = false) List<Long> tagIds) {
-        List<ScheduleResponse> schedules = scheduleService.getSchedulesForUser(user, tagIds);
-        System.out.println(schedules);
+            @RequestParam(value = "tagIds", required = false) String tagIdsString) { // Changed to String
+
+        List<Long> numericTagIds = new ArrayList<>();
+        boolean includeNullTagId = false;
+
+        if (StringUtils.hasText(tagIdsString)) {
+            List<String> tagIdParts = Arrays.asList(tagIdsString.split(","));
+            for (String part : tagIdParts) {
+                String trimmedPart = part.trim();
+                if ("null".equalsIgnoreCase(trimmedPart)) {
+                    includeNullTagId = true;
+                } else {
+                    try {
+                        numericTagIds.add(Long.parseLong(trimmedPart));
+                    } catch (NumberFormatException e) {
+                        // Optionally handle invalid number format, e.g., log or return 400 Bad Request
+                        // For now, just skip invalid parts
+                        System.err.println("Invalid tagId format: " + trimmedPart);
+                    }
+                }
+            }
+        }
+
+        List<ScheduleResponse> schedules = scheduleService.getSchedulesForUser(user, numericTagIds, includeNullTagId); // Updated service call
         return ResponseEntity.ok(schedules);
     }
 

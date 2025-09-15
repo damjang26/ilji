@@ -38,13 +38,28 @@ public class FriendController {
         return ResponseEntity.ok(followingList);
     }
 
+    // [추가] 특정 사용자의 팔로잉 목록 조회
+    @GetMapping("/following/{userId}")
+    public ResponseEntity<List<FriendResponse>> getFollowingListByUserId(@PathVariable Long userId) {
+        List<FriendResponse> followingList = friendService.getFollowingList(userId);
+        return ResponseEntity.ok(followingList);
+    }
+
     @GetMapping("/followers")
     public ResponseEntity<List<FriendResponse>> getFollowerList(@AuthenticationPrincipal User currentUser) {
         List<FriendResponse> followerList = friendService.getFollowerList(currentUser.getId());
         return ResponseEntity.ok(followerList);
     }
 
-    @GetMapping("/{userId}/status")
+    // [추가] 특정 사용자의 팔로워 목록 조회
+    @GetMapping("/followers/{userId}")
+    public ResponseEntity<List<FriendResponse>> getFollowerListByUserId(@PathVariable Long userId) {
+        List<FriendResponse> followerList = friendService.getFollowerList(userId);
+        return ResponseEntity.ok(followerList);
+    }
+
+    // [수정] URL 경로 충돌을 피하기 위해 경로를 /status/{userId}로 변경합니다.
+    @GetMapping("/status/{userId}")
     public ResponseEntity<FriendshipStatus> getFriendshipStatus(@PathVariable Long userId, @AuthenticationPrincipal User currentUser) {
         User otherUser = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));

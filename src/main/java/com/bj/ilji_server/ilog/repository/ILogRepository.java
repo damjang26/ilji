@@ -26,6 +26,12 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
     // 다음 일기 (현재 날짜보다 큰 것 중 제일 가까운 것 하나)
     Optional<ILog> findFirstByUserProfileUserIdAndLogDateGreaterThanOrderByLogDateAsc(Long userProfileUserId, LocalDate logDate);
 
+    // 🆕 [추가] 특정 사용자의 특정 공개 상태인 일기 목록 조회 (친구 마이페이지용)
+    // N+1 문제 방지를 위해 JOIN FETCH 사용
+    @Query("SELECT i FROM ILog i JOIN FETCH i.userProfile WHERE i.userProfile.userId = :userProfileId AND i.visibility = :visibility ORDER BY i.logDate ASC")
+    List<ILog> findByProfileAndVisibility(@Param("userProfileId") Long userProfileId, @Param("visibility") ILog.Visibility visibility);
+
+
     @Query(value = "SELECT i FROM ILog i JOIN FETCH i.userProfile " +
                    "WHERE i.userProfile.userId = :currentUserProfileId OR " +
                    "(i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility)",

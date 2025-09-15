@@ -1,11 +1,11 @@
 package com.bj.ilji_server.tag.dto;
 
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import com.bj.ilji_server.tag.entity.TagVisibility;
+import lombok.Data;
 
-@Getter
-@NoArgsConstructor
+@Data
 public class TagCreateRequest {
     private String label;
     private String color;
+    private TagVisibility visibility; // 추가
 }
