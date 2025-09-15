@@ -81,6 +81,11 @@ dependencies {
     // mongodb
     implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
 
+    //    중복 알림 방지
+    implementation 'commons-codec:commons-codec'
+
+    // 실시간 반영 웹 소켓
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
 
 }
