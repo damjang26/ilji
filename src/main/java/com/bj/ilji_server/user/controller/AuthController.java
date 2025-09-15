@@ -4,7 +4,6 @@ import com.bj.ilji_server.user.dto.AuthResponse;
 import com.bj.ilji_server.user.dto.GoogleLoginRequest;
 import com.bj.ilji_server.user.entity.User;
 import com.bj.ilji_server.user.service.AuthService;
-import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -23,9 +21,11 @@ public class AuthController {
 
     @PostMapping("/google")
     public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginRequest request) {
-        log.info("Attempting Google login...");
+        System.out.println("/google enter..");
+        System.out.println(request.getToken());
         try {
             AuthResponse authResponse = authService.loginWithGoogle(request.getToken());
+        System.out.println("/try enter..");
             return ResponseEntity.ok(authResponse);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid Google ID Token: " + e.getMessage());
@@ -36,7 +36,6 @@ public class AuthController {
 
     @GetMapping("/me")
     public ResponseEntity<?> getMe(@AuthenticationPrincipal User user) {
-        log.info("Fetching current user information...");
         // @AuthenticationPrincipal 어노테이션이 JWT 필터에서 인증된 사용자 정보를 가져와 줍니다.
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
