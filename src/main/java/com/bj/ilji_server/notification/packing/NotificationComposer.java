@@ -97,7 +97,7 @@ public class NotificationComposer {
         n.setType(NotificationType.FOLLOW_REQUEST);
         n.setEntityType(EntityType.FOLLOW);
         n.setMessageTitle(followerName + "님이 팔로우를 요청했어요");
-        n.setLinkUrl("/profile/" + followerId);
+        n.setLinkUrl("/mypage/" + followerId);
 
         // 2) 주(ISO week, KST) 멱등키
         String key = IdempotencyKey.weeklyFollowRequestKey(targetUserId, followerId);
@@ -122,7 +122,7 @@ public class NotificationComposer {
         n.setType(NotificationType.FOLLOW_ACCEPTED);
         n.setEntityType(EntityType.FOLLOW);
         n.setMessageTitle(followeeName + "님이 팔로우를 수락했어요");
-        n.setLinkUrl("/profile/" + followeeId);
+        n.setLinkUrl("/mypage/" + followeeId);
         n.setIdempotencyKey(IdempotencyKey.instant(
                 followerUserId, NotificationType.FOLLOW_ACCEPTED, EntityType.FOLLOW, followeeId));
         n.setMetaJson(writeJson(meta));
