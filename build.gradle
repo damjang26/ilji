@@ -72,6 +72,8 @@ dependencies {
     // mongodb
     implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
 
+    // Jackson Hibernate Module for Lazy Loading
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-hibernate6'
 
 }
 

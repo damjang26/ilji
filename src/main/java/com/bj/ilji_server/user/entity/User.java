@@ -1,6 +1,7 @@
 package com.bj.ilji_server.user.entity;
 
 import com.bj.ilji_server.user_profile.entity.UserProfile;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -40,6 +41,7 @@ public class User implements UserDetails {
     private String providerId;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonManagedReference
     private UserProfile userProfile;
 
     @Builder

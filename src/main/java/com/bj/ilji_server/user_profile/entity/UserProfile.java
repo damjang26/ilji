@@ -2,6 +2,7 @@ package com.bj.ilji_server.user_profile.entity;
 
 import com.bj.ilji_server.user.entity.User;
 import com.bj.ilji_server.user_profile.dto.UserProfileUpdateRequest;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -28,6 +29,7 @@ public class UserProfile {
     @OneToOne(fetch = FetchType.LAZY)
     @MapsId
     @JoinColumn(name = "USER_ID")
+    @JsonBackReference
     private User user;
 
     @Column(name = "NICKNAME", length = 50)
