@@ -46,34 +46,19 @@ public class NotificationService {
     }
 
     /** 목록 조회 (status = "ALL" 또는 "NEW"/"READ"/"ARCHIVED") */
+    /** 목록 조회 (status = "ALL" 또는 "NEW"/"READ"/"ARCHIVED") */
     @Transactional(readOnly = true)
     public Page<Notification> list(Long userId, String status, int offset, int limit) {
-        // [DEBUG] Start NotificationService.list
-        System.out.println("--- [DEBUG] NotificationService.list ---");
-        System.out.println("[DEBUG] userId: " + userId + ", status: " + status + ", offset: " + offset + ", limit: " + limit);
-
         int safeLimit = Math.max(1, limit);
         int page = Math.max(0, offset / safeLimit);
         PageRequest pageable = PageRequest.of(page, safeLimit);
-        System.out.println("[DEBUG] Calculated PageRequest: page=" + page + ", size=" + safeLimit);
 
-        Page<Notification> result;
         if ("ALL".equalsIgnoreCase(status)) {
-            // [DEBUG] Fetching all notifications
-            System.out.println("[DEBUG] Condition: 'ALL'. Calling findByRecipientIdOrderByCreatedAtDesc.");
-            result = repository.findByRecipientIdOrderByCreatedAtDesc(userId, pageable);
+            return repository.findByRecipientIdOrderByCreatedAtDesc(userId, pageable);
         } else {
-            // [DEBUG] Fetching notifications with a specific status
-            System.out.println("[DEBUG] Condition: Specific status. Converting '" + status + "' to enum.");
             NotificationStatus notificationStatus = NotificationStatus.valueOf(status.toUpperCase());
-            System.out.println("[DEBUG] Calling findByRecipientIdAndStatusOrderByCreatedAtDesc with status: " + notificationStatus);
-            result = repository.findByRecipientIdAndStatusOrderByCreatedAtDesc(userId, notificationStatus, pageable);
+            return repository.findByRecipientIdAndStatusOrderByCreatedAtDesc(userId, notificationStatus, pageable);
         }
-
-        // [DEBUG] End NotificationService.list
-        System.out.println("[DEBUG] Query Result: " + result.getTotalElements() + " notifications found in total.");
-        System.out.println("--- [DEBUG] End NotificationService.list ---");
-        return result;
     }
 
     /** 미확인(NEW) 개수 */

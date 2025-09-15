@@ -10,15 +10,6 @@ import java.util.Optional;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
-    // [2025-09-15 Gemini] QueryArgumentException: Argument [ALL] of type [java.lang.String] did not match parameter type [...NotificationStatus]
-    // Rollback to:
-    // @Query("""
-    //     SELECT n FROM Notification n
-    //      WHERE n.recipientId = :recipientId
-    //        AND (:status = 'ALL' OR n.status = :status)
-    //      ORDER BY n.createdAt DESC
-    // """)
-    // Page<Notification> findPage(Long recipientId, String status, Pageable pageable);
     Page<Notification> findByRecipientIdOrderByCreatedAtDesc(Long recipientId, Pageable pageable);
 
     Page<Notification> findByRecipientIdAndStatusOrderByCreatedAtDesc(Long recipientId, NotificationStatus status, Pageable pageable);
