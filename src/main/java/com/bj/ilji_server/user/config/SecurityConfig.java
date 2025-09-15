@@ -33,6 +33,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/proxy/**", "/error").permitAll()
                         .requestMatchers("/api/schedules/**").authenticated()
                         .requestMatchers("/api/firebase/**").authenticated()
+                        .requestMatchers("/api/chat/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 // 우리가 만든 JWT 인증 필터를 UsernamePasswordAuthenticationFilter 앞에 추가
