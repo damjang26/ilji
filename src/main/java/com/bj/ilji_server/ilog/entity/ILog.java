@@ -1,5 +1,6 @@
 package com.bj.ilji_server.ilog.entity;
 
+import com.bj.ilji_server.likes.entity.Likes;
 import com.bj.ilji_server.user_profile.entity.UserProfile;
 import jakarta.persistence.*;
 import lombok.*;
@@ -9,6 +10,8 @@ import org.hibernate.annotations.DynamicInsert;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -77,6 +80,9 @@ public class ILog {
     @Column(name = "tags", length = 1000)
     private String tags;
 
+    @OneToMany(mappedBy = "iLog", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Likes> likes = new ArrayList<>();
+
     @Builder
     public ILog(UserProfile userProfile, LocalDate logDate, String content, String imgUrl, Visibility visibility, String friendTags, String tags) {
         this.userProfile = userProfile;
@@ -91,10 +97,13 @@ public class ILog {
     }
 
     // 편의 메서드
-    public void increaseLike() {
+    // ✅ [추가] 좋아요 카운트를 1 증가시킵니다.
+    public void incrementLikeCount() {
         this.likeCount++;
     }
-    public void decreaseLike() {
+
+    // ✅ [추가] 좋아요 카운트를 1 감소시킵니다. 0보다 작아지지 않도록 보장합니다.
+    public void decrementLikeCount() {
         this.likeCount = Math.max(0, this.likeCount - 1);
     }
 

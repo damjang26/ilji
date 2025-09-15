@@ -34,10 +34,12 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED, authException.getMessage())))
                 // [ROLLBACK-POINT 1] END
                 .authorizeHttpRequests(auth -> auth
-                        // [ROLLBACK-POINT 2] START: 웹소켓 경로(/ws/**) 허용 (404 오류 방지)
-                        // 이 부분이 없으면 웹소켓 연결이 차단됩니다.
                         .requestMatchers("/api/auth/**", "/error", "/ws/**", "/api/proxy/**").permitAll()
-                        // [ROLLBACK-POINT 2] END
+                        .requestMatchers("/api/auth/**", "/error").permitAll()
+                        .requestMatchers("/api/proxy/**", "/error").permitAll()
+                        .requestMatchers("/api/schedules/**").authenticated()
+                        .requestMatchers("/api/firebase/**").authenticated()
+                        .requestMatchers("/api/chat/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
