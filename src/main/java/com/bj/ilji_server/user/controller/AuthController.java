@@ -21,8 +21,11 @@ public class AuthController {
 
     @PostMapping("/google")
     public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginRequest request) {
+        System.out.println("/google enter..");
+        System.out.println(request.getToken());
         try {
             AuthResponse authResponse = authService.loginWithGoogle(request.getToken());
+        System.out.println("/try enter..");
             return ResponseEntity.ok(authResponse);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid Google ID Token: " + e.getMessage());
