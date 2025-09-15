@@ -52,7 +52,10 @@ public class LikesService {
     public List<LikerInfoDTO> getLikers(Long ilogId) {
         List<Likes> likes = likesRepository.findAllByiLog_Id(ilogId);
         return likes.stream()
-                .map(like -> new LikerInfoDTO(like.getUserProfile()))
+                .map(Likes::getUserProfile) // Likes 엔티티에서 UserProfile 엔티티를 추출합니다.
+                // ✅ [수정] 프로필이 비공개가 아닌 사용자만 필터링합니다.
+                .filter(userProfile -> !userProfile.isAccountPrivate())
+                .map(LikerInfoDTO::new) // 필터링된 UserProfile을 DTO로 변환합니다.
                 .collect(Collectors.toList());
     }
 }

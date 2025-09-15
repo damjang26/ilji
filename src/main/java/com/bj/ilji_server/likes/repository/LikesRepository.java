@@ -19,4 +19,5 @@ public interface LikesRepository extends JpaRepository<Likes, Long> {
     // 특정 일기(ilogId)에 대한 모든 '좋아요' 목록을 조회하는 메서드
     @EntityGraph(attributePaths = {"userProfile"})
     List<Likes> findAllByiLog_Id(Long ilogId);
+
 }
