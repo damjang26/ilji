@@ -29,9 +29,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/dev/**").permitAll() // 1. /api/dev/** 경로를 최우선으로 허용
+                        // "/api/auth/"로 시작하는 모든 경로와 "/error" 경로는 인증 없이 허용
                         .requestMatchers("/api/auth/**", "/error").permitAll()
-                        .anyRequest().authenticated() // 2. 그 외 모든 요청은 인증 필요
+                        // 그 외의 모든 요청은 인증이 필요함
+                        .anyRequest().authenticated()
                 )
                 // 우리가 만든 JWT 인증 필터를 UsernamePasswordAuthenticationFilter 앞에 추가
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
