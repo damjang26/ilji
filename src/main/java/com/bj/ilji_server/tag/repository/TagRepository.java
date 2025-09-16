@@ -10,8 +10,8 @@ import java.util.List;
 public interface TagRepository extends JpaRepository<Tag, Long> {
     List<Tag> findByUserId(Long userId);
 
-    List<Tag> findByUser(User user);
+    List<Tag> findByUserOrderByPositionDesc(User user);
 
-    List<Tag> findByUserAndVisibilityIn(User user, List<TagVisibility> visibilities);
+    List<Tag> findByUserAndVisibilityInOrderByPositionDesc(User user, List<TagVisibility> visibilities);
 
 }

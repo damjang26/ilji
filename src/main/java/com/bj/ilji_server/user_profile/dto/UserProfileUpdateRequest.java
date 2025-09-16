@@ -14,7 +14,6 @@ public class UserProfileUpdateRequest {
     private String nickname;
     private LocalDate birthdate;
     private String phoneNumber;
-    private String bannerImage;
     private String gender;
     private String region;
     private String bio;

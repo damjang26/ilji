@@ -25,6 +25,7 @@ public class AuthResponse {
             this.picture = user.getPicture();
             this.providerId = user.getProviderId();
             this.id = user.getId();
+
         }
     }
 }
