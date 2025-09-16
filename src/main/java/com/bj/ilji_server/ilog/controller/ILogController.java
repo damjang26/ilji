@@ -65,6 +65,32 @@ public class ILogController {
         return ResponseEntity.ok(logs);
     }
 
+    // ---------------------------------------------------
+    //  특정 사용자가 '좋아요' 누른 일기 목록 조회
+    // ---------------------------------------------------
+    /**
+     * 특정 사용자가 '좋아요'를 누른 일기 목록을 조회합니다.
+     * @param userId 조회할 사용자의 ID. null일 경우 현재 로그인한 사용자를 대상으로 합니다.
+     * @param sortBy 정렬 기준 ('liked_at': 좋아요 누른 순, 'uploaded_at': 일기 작성 순, 'popular': 인기순)
+     * @param page 페이지 번호
+     * @param size 페이지 크기
+     * @param currentUser 현재 로그인한 사용자 정보
+     * @return '좋아요' 누른 일기 목록 (페이징 처리)
+     */
+    @GetMapping("/liked")
+    public ResponseEntity<Page<ILogFeedResponseDto>> getLikedILogs(
+            @RequestParam(required = false) Long userId,
+            @RequestParam(defaultValue = "liked_at") String sortBy,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal User currentUser) {
+
+        // 조회 대상 사용자의 ID를 결정합니다 (파라미터가 없으면 현재 사용자).
+        Long targetUserId = (userId == null) ? currentUser.getId() : userId;
+
+        Page<ILogFeedResponseDto> likedILogs = ilogService.getLikedILogsByUser(targetUserId, currentUser, sortBy, page, size);
+        return ResponseEntity.ok(likedILogs);
+    }
 
     // ---------------------------------------------------
     // 2️⃣ 일기 등록
