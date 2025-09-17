@@ -35,6 +35,9 @@ public class Tag {
     @Column(nullable = false)
     private TagVisibility visibility = TagVisibility.PRIVATE;
 
+    @Column(nullable = false)
+    private Long position;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -49,6 +52,12 @@ public class Tag {
         this.label = label;
         this.color = color;
         this.visibility = (visibility != null) ? visibility : TagVisibility.PRIVATE;
+        this.position = System.currentTimeMillis(); // 생성 시 타임스탬프를 위치값으로 저장
+    }
+
+    // 드래그앤드랍 순서 변경을 위한 메소드
+    public void updatePosition(Long position) {
+        this.position = position;
     }
 
     public void updateVisibility(TagVisibility visibility) {

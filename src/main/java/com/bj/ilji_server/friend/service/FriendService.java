@@ -4,14 +4,19 @@ import com.bj.ilji_server.friend.dto.FriendResponse;
 import com.bj.ilji_server.friend.dto.FriendshipStatus;
 import com.bj.ilji_server.friend.entity.Friend;
 import com.bj.ilji_server.friend.repository.FriendRepository;
+import com.bj.ilji_server.notification.service.NotificationService;
 import com.bj.ilji_server.user.entity.User;
 import com.bj.ilji_server.user.repository.UserRepository;
+import com.bj.ilji_server.user_profile.entity.UserProfile;
+import com.bj.ilji_server.user_profile.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.bj.ilji_server.notification.packing.NotificationComposer;
 
 @Service
 @RequiredArgsConstructor
@@ -20,7 +25,8 @@ public class FriendService {
 
     private final FriendRepository friendRepository;
     private final UserRepository userRepository;
-//    private final NotificationService notificationService;
+    private final NotificationComposer  notificationComposer;
+    private final UserProfileRepository userProfileRepository;
 
     @Transactional
     public void followUser(Long followerId, Long followingId) {
@@ -44,8 +50,27 @@ public class FriendService {
 
         friendRepository.save(friend);
 
-        // Create notification
+//        // Create notification
 //        notificationService.createFollowNotification(follower, following);
+        // 표시 이름(닉네임 우선, 없으면 이메일 로컬파트)
+        UserProfile followerProfile = userProfileRepository.findById(followerId)
+                .orElseThrow(() -> new IllegalArgumentException("UserProfile not found: " + followerId));
+
+        String displayName;
+        if (followerProfile.getNickname() != null && !followerProfile.getNickname().isBlank()) {
+            displayName = followerProfile.getNickname();
+        } else if (follower.getEmail() != null) {
+            int at = follower.getEmail().indexOf('@');
+            displayName = at > 0 ? follower.getEmail().substring(0, at) : follower.getEmail();
+        } else {
+            displayName = "알 수 없음";
+        }
+
+        notificationComposer.followRequested(
+                following.getId(),   // targetUserId = 수신자
+                follower.getId(),    // followerId   = 발신자
+                displayName          // followerName = 화면 표시 이름(닉네임 폴백)
+        );
     }
 
     @Transactional

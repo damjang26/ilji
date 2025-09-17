@@ -20,48 +20,50 @@ public class FriendController {
     private final FriendService friendService;
     private final UserRepository userRepository; // For status check
 
-    private User getAuthenticatedUser(User user) {
-        if (user == null) {
-            return userRepository.findById(4L)
-                    .orElseThrow(() -> new RuntimeException("테스트 유저(ID=4)를 찾을 수 없습니다. DB를 확인해주세요."));
-        }
-        return user;
-    }
-
     @PostMapping("/{followingId}")
     public ResponseEntity<Void> followUser(@PathVariable Long followingId, @AuthenticationPrincipal User currentUser) {
-        User user = getAuthenticatedUser(currentUser);
-        friendService.followUser(user.getId(), followingId);
+        friendService.followUser(currentUser.getId(), followingId);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{followingId}")
     public ResponseEntity<Void> unfollowUser(@PathVariable Long followingId, @AuthenticationPrincipal User currentUser) {
-        User user = getAuthenticatedUser(currentUser);
-        friendService.unfollowUser(user.getId(), followingId);
+        friendService.unfollowUser(currentUser.getId(), followingId);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/following")
     public ResponseEntity<List<FriendResponse>> getFollowingList(@AuthenticationPrincipal User currentUser) {
-        User user = getAuthenticatedUser(currentUser);
-        List<FriendResponse> followingList = friendService.getFollowingList(user.getId());
+        List<FriendResponse> followingList = friendService.getFollowingList(currentUser.getId());
+        return ResponseEntity.ok(followingList);
+    }
+
+    // [추가] 특정 사용자의 팔로잉 목록 조회
+    @GetMapping("/following/{userId}")
+    public ResponseEntity<List<FriendResponse>> getFollowingListByUserId(@PathVariable Long userId) {
+        List<FriendResponse> followingList = friendService.getFollowingList(userId);
         return ResponseEntity.ok(followingList);
     }
 
     @GetMapping("/followers")
     public ResponseEntity<List<FriendResponse>> getFollowerList(@AuthenticationPrincipal User currentUser) {
-        User user = getAuthenticatedUser(currentUser);
-        List<FriendResponse> followerList = friendService.getFollowerList(user.getId());
+        List<FriendResponse> followerList = friendService.getFollowerList(currentUser.getId());
         return ResponseEntity.ok(followerList);
     }
 
-    @GetMapping("/{userId}/status")
+    // [추가] 특정 사용자의 팔로워 목록 조회
+    @GetMapping("/followers/{userId}")
+    public ResponseEntity<List<FriendResponse>> getFollowerListByUserId(@PathVariable Long userId) {
+        List<FriendResponse> followerList = friendService.getFollowerList(userId);
+        return ResponseEntity.ok(followerList);
+    }
+
+    // [수정] URL 경로 충돌을 피하기 위해 경로를 /status/{userId}로 변경합니다.
+    @GetMapping("/status/{userId}")
     public ResponseEntity<FriendshipStatus> getFriendshipStatus(@PathVariable Long userId, @AuthenticationPrincipal User currentUser) {
-        User user = getAuthenticatedUser(currentUser);
         User otherUser = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
-        FriendshipStatus status = friendService.checkFriendshipStatus(user, otherUser);
+        FriendshipStatus status = friendService.checkFriendshipStatus(currentUser, otherUser);
         return ResponseEntity.ok(status);
     }
 }
