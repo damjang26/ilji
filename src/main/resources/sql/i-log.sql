@@ -42,3 +42,10 @@ CREATE TABLE i_log (
 
 DROP TABLE I_LOG;
 
+INSERT INTO i_log (user_profile_id, log_date, content, visibility) VALUES (48, SYSDATE, '테스트 일지입니다.', 0);
+
+SELECT * FROM I_LOG;
+
+
+
+
