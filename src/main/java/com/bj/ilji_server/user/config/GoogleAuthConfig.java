@@ -7,18 +7,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.Collections;
+import java.util.List;
 
 @Configuration
 public class GoogleAuthConfig {
 
-    @Value("${google.client.id}")
-    private String googleClientId;
+    @Value("#{'${google.client.ids}'.split(',')}")
+    private List<String> googleClientIds;
 
     @Bean
     public GoogleIdTokenVerifier googleIdTokenVerifier() {
         return new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
-                .setAudience(Collections.singletonList(googleClientId))
+                .setAudience(googleClientIds)
                 .build();
     }
 }
