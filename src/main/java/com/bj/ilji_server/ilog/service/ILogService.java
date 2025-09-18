@@ -80,6 +80,52 @@ public class ILogService {
                 .collect(Collectors.toList());
     }
 
+    // 🆕 [추가] 특정 사용자가 '좋아요' 누른 일기 목록 조회
+    @Transactional(readOnly = true)
+    public Page<ILogFeedResponseDto> getLikedILogsByUser(Long targetUserId, User currentUser, String sortBy, int page, int size) {
+        // 1. 정렬 기준(sortBy)에 따라 Sort 객체를 생성합니다.
+        Sort sort;
+        switch (sortBy) {
+            case "uploaded_at":
+                // 일기 작성 최신순
+                sort = Sort.by(Sort.Direction.DESC, "createdAt");
+                break;
+            case "popular":
+                // 인기순 (좋아요 많은 순)
+                sort = Sort.by(Sort.Direction.DESC, "likeCount");
+                break;
+            case "liked_at":
+            default:
+                // 좋아요 누른 최신순 (기본값)
+                // Likes 엔티티의 생성 시간(createdAt)을 기준으로 정렬해야 하므로, Repository 쿼리에서 직접 처리합니다.
+                // 여기서는 정렬 객체를 비워두거나, Repository에서 사용할 특별한 값을 전달할 수 있습니다.
+                // 이 예제에서는 sortBy 문자열을 그대로 Repository에 전달하여 처리하도록 하겠습니다.
+                sort = Sort.unsorted(); // Repository에서 직접 처리할 것이므로 여기서는 정렬 없음을 명시
+                break;
+        }
+
+        // 2. Pageable 객체를 생성합니다.
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // 3. Repository를 호출하여 '좋아요' 누른 일기 목록을 조회합니다.
+        //    (findLikedILogsByUser 메서드는 다음 단계에서 Repository에 추가해야 합니다.)
+        Page<ILog> likedILogsPage;
+        if ("liked_at".equals(sortBy)) {
+            // '좋아요 누른 순'은 별도의 쿼리로 처리
+            likedILogsPage = ilogRepository.findLikedILogsByUserOrderByLikedAt(targetUserId, pageable);
+        } else {
+            // '인기순', '작성순'은 Pageable에 설정된 Sort를 이용
+            likedILogsPage = ilogRepository.findLikedILogsByUser(targetUserId, pageable);
+        }
+
+        // 4. 조회된 Page<ILog>를 Page<ILogFeedResponseDto>로 변환합니다.
+        //    'isLiked' 여부는 현재 로그인한 사용자(currentUser)를 기준으로 판단합니다.
+        return likedILogsPage.map(iLog -> {
+            IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
+            return ILogFeedResponseDto.fromEntity(iLog, bestComment, objectMapper, currentUser.getUserProfile().getUserId());
+        });
+    }
+
     @Transactional(readOnly = true)
     public Page<ILogFeedResponseDto> getFeedForUser(User currentUser, int page, int size) {
         // ✅ [수정] pageable 객체를 먼저 생성해야 if문에서 사용할 수 있습니다.

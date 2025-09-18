@@ -44,7 +44,7 @@ public class NotificationComposer {
         n.setType(NotificationType.COMMENT_CREATED);
         n.setEntityType(EntityType.COMMENT);
         n.setEntityId(commentId);
-        n.setMessageTitle(actorName + "님이 댓글을 남겼어요");
+        n.setMessageTitle(actorName + " commented on your post");
         n.setMessageBody(snippet);
         n.setLinkUrl("/posts/" + postId + "?comment=" + commentId);
         n.setIdempotencyKey(IdempotencyKey.instant(
@@ -71,7 +71,7 @@ public class NotificationComposer {
         n.setType(NotificationType.LIKE_CREATED);
         n.setEntityType(EntityType.LIKE);
         n.setEntityId(likeId);
-        n.setMessageTitle(actorName + "님이 좋아요를 눌렀어요");
+        n.setMessageTitle(actorName + " liked your post");
         n.setMessageBody(postTitle);
         n.setLinkUrl("/posts/" + postId);
         n.setIdempotencyKey(IdempotencyKey.instant(
@@ -96,7 +96,7 @@ public class NotificationComposer {
         n.setSenderId(followerId);
         n.setType(NotificationType.FOLLOW_REQUEST);
         n.setEntityType(EntityType.FOLLOW);
-        n.setMessageTitle(followerName + "님이 팔로우를 요청했어요");
+        n.setMessageTitle(followerName + " sent you a follow request");
         n.setLinkUrl("/mypage/" + followerId);
 
         // 2) 주(ISO week, KST) 멱등키
@@ -121,7 +121,7 @@ public class NotificationComposer {
         n.setSenderId(followeeId);
         n.setType(NotificationType.FOLLOW_ACCEPTED);
         n.setEntityType(EntityType.FOLLOW);
-        n.setMessageTitle(followeeName + "님이 팔로우를 수락했어요");
+        n.setMessageTitle(followeeName + " accepted your follow request");
         n.setLinkUrl("/mypage/" + followeeId);
         n.setIdempotencyKey(IdempotencyKey.instant(
                 followerUserId, NotificationType.FOLLOW_ACCEPTED, EntityType.FOLLOW, followeeId));
@@ -146,7 +146,7 @@ public class NotificationComposer {
         n.setType(NotificationType.FRIEND_POST_CREATED);
         n.setEntityType(EntityType.DIARY); // ILog -> DIARY로 매핑
         n.setEntityId(diaryId);
-        n.setMessageTitle(authorName + "님이 일기를 작성했어요");
+        n.setMessageTitle(authorName + " wrote a new log");
         n.setLinkUrl("/ilog/" + diaryId);
         n.setIdempotencyKey(IdempotencyKey.instant(
                 recipientId, NotificationType.FRIEND_POST_CREATED, EntityType.DIARY, diaryId));
@@ -163,7 +163,7 @@ public class NotificationComposer {
         // 유저별 '하루 1건' 멱등을 위해 날짜 기반 키 사용
         long yyyymmdd = date.getYear() * 10000L + date.getMonthValue() * 100L + date.getDayOfMonth();
 
-        String title = "오늘 일정 " + totalCount + "개가 있습니다";
+        String title = "You have " + totalCount + " schedules today";
         String body  = renderScheduleLines(topItems);
 
         Notification n = new Notification();
