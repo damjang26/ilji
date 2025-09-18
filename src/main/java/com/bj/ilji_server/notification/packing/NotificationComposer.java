@@ -140,14 +140,19 @@ public class NotificationComposer {
         meta.put("diaryId", diaryId);
         meta.put("date", dateIso);
 
+        // Parse dateIso and format it
+        LocalDate logDate = LocalDate.parse(dateIso);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd");
+        String formattedDate = logDate.format(formatter);
+
         Notification n = new Notification();
         n.setRecipientId(recipientId);
         n.setSenderId(authorId);
         n.setType(NotificationType.FRIEND_POST_CREATED);
         n.setEntityType(EntityType.DIARY); // ILog -> DIARY로 매핑
         n.setEntityId(diaryId);
-        n.setMessageTitle(authorName + " wrote a new log");
-        n.setLinkUrl("/ilog/" + diaryId);
+        n.setMessageTitle(authorName + " wrote a new log (" + formattedDate + ")"); // Modified line
+        n.setLinkUrl("/mypage/" + authorId);
         n.setIdempotencyKey(IdempotencyKey.instant(
                 recipientId, NotificationType.FRIEND_POST_CREATED, EntityType.DIARY, diaryId));
         n.setMetaJson(writeJson(meta));
