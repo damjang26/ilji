@@ -130,6 +130,45 @@ public class ILogService {
     }
 
     @Transactional(readOnly = true)
+    public ILogResponse getLogById(Long logId, User currentUser) {
+        ILog log = ilogRepository.findById(logId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + logId));
+
+        User author = log.getUserProfile().getUser();
+
+        // 권한 확인
+        boolean canView = false;
+        if (author.getId().equals(currentUser.getId())) {
+            // 1. 본인 글은 항상 볼 수 있음
+            canView = true;
+        } else {
+            switch (log.getVisibility()) {
+                case PUBLIC:
+                    // 2. 전체 공개 글은 누구나 볼 수 있음
+                    canView = true;
+                    break;
+                case FRIENDS_ONLY:
+                    // 3. 친구 공개 글은 친구만 볼 수 있음 (요청자가 작성자를 팔로우하는 경우)
+                    if (friendRepository.existsByFollowerAndFollowing(currentUser, author)) {
+                        canView = true;
+                    }
+                    break;
+                case PRIVATE:
+                    // 4. 비공개 글은 본인 외 볼 수 없음 (위에서 이미 처리됨)
+                    canView = false;
+                    break;
+            }
+        }
+
+        if (!canView) {
+            throw new SecurityException("해당 일기를 볼 권한이 없습니다.");
+        }
+
+        IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(log.getId()).orElse(null);
+        return ILogResponse.fromEntity(log, bestComment, objectMapper, currentUser.getUserProfile().getUserId());
+    }
+
+    @Transactional(readOnly = true)
     public Page<ILogFeedResponseDto> getFeedForUser(User currentUser, int page, int size) {
         // ✅ [수정] pageable 객체를 먼저 생성해야 if문에서 사용할 수 있습니다.
         // 1. 최신순(createdAt 기준 내림차순)으로 정렬 조건을 설정한다.
