@@ -43,4 +43,22 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
             @Param("followingProfileIds") List<Long> followingProfileIds,
             @Param("publicVisibility") ILog.Visibility publicVisibility,
             Pageable pageable);
+
+    // ---------------------------------------------------
+    // 🆕 [추가] 특정 사용자가 '좋아요' 누른 일기 목록 조회
+    // ---------------------------------------------------
+    @Query(value = "SELECT i FROM ILog i JOIN i.likes l " +
+                   "WHERE l.userProfile.userId = :userId",
+           countQuery = "SELECT count(i) FROM ILog i JOIN i.likes l " +
+                        "WHERE l.userProfile.userId = :userId")
+    Page<ILog> findLikedILogsByUser(@Param("userId") Long userId, Pageable pageable);
+
+    // ---------------------------------------------------
+    // 🆕 [추가] 특정 사용자가 '좋아요' 누른 일기 목록 조회 ('좋아요 누른 순' 정렬)
+    // ---------------------------------------------------
+    @Query(value = "SELECT i FROM ILog i JOIN i.likes l " +
+                   "WHERE l.userProfile.userId = :userId ORDER BY l.createdAt DESC",
+           countQuery = "SELECT count(i) FROM ILog i JOIN i.likes l " +
+                        "WHERE l.userProfile.userId = :userId")
+    Page<ILog> findLikedILogsByUserOrderByLikedAt(@Param("userId") Long userId, Pageable pageable);
 }

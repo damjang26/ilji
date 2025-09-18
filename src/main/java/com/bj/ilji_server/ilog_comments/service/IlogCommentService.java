@@ -25,24 +25,31 @@ public class IlogCommentService {
     /**
      * 특정 일기의 모든 댓글을 계층 구조(댓글 + 대댓글)로 조회합니다.
      * @param ilogId 일기 ID
+     * @param currentUser 현재 로그인한 사용자 (null일 수 있음)
      * @return 계층적으로 구성된 댓글 DTO 목록
      */
-    public List<IlogCommentDto> getCommentsByIlogId(Long ilogId, String sortBy) {
-        List<IlogComment> topLevelComments;
+    public List<IlogCommentDto> getCommentsByIlogId(Long ilogId, String sortBy, User currentUser) {
+        // 비로그인 사용자의 경우 ID를 0L로 설정하여 '좋아요'가 없는 것으로 간주
+        Long currentUserId = (currentUser != null) ? currentUser.getId() : 0L;
+
+        List<Object[]> results;
 
         // 1. sortBy 값에 따라 적절한 Repository 메서드를 호출합니다.
         if ("recent".equalsIgnoreCase(sortBy)) {
             // '최신순'으로 정렬
-            topLevelComments = ilogCommentRepository.findTopLevelCommentsByIlogIdOrderByRecent(ilogId);
+            results = ilogCommentRepository.findTopLevelCommentsWithLikeStatusByIlogIdOrderByRecent(ilogId, currentUserId);
         } else {
             // 기본값인 '좋아요순'으로 정렬
-            topLevelComments = ilogCommentRepository.findTopLevelCommentsByIlogIdOrderByLikes(ilogId);
+            results = ilogCommentRepository.findTopLevelCommentsWithLikeStatusByIlogIdOrderByLikes(ilogId, currentUserId);
         }
 
         // 2. 조회된 엔티티 목록을 DTO 목록으로 변환합니다.
-        //    IlogCommentDto.from() 메서드가 재귀적으로 대댓글까지 처리해줍니다.
-        return topLevelComments.stream()
-                .map(IlogCommentDto::from)
+        return results.stream()
+                .map(result -> {
+                    IlogComment comment = (IlogComment) result[0];
+                    boolean isLiked = (Boolean) result[1];
+                    return IlogCommentDto.from(comment, isLiked);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -81,7 +88,8 @@ public class IlogCommentService {
         iLog.increaseCommentCount();
 
         // 6. 저장된 엔티티를 DTO로 변환하여 반환합니다.
-        return IlogCommentDto.from(savedComment);
+        // 새로 생성된 댓글은 아직 '좋아요'를 누르지 않은 상태이므로 isLiked는 false입니다.
+        return IlogCommentDto.from(savedComment, false);
     }
 
     /**
