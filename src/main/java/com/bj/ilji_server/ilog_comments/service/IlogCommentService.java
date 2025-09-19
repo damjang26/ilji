@@ -6,6 +6,7 @@ import com.bj.ilji_server.ilog_comments.dto.IlogCommentCreateRequest;
 import com.bj.ilji_server.ilog_comments.dto.IlogCommentDto;
 import com.bj.ilji_server.ilog_comments.entity.IlogComment;
 import com.bj.ilji_server.ilog_comments.repository.IlogCommentRepository;
+import com.bj.ilji_server.notification.packing.NotificationComposer; // Import NotificationComposer
 import com.bj.ilji_server.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ public class IlogCommentService {
 
     private final IlogCommentRepository ilogCommentRepository;
     private final ILogRepository iLogRepository;
+    private final NotificationComposer notificationComposer;
 
     /**
      * 특정 일기의 모든 댓글을 계층 구조(댓글 + 대댓글)로 조회합니다.
@@ -87,7 +89,19 @@ public class IlogCommentService {
         // 5. 일기의 댓글 수를 1 증가시킵니다.
         iLog.increaseCommentCount();
 
-        // 6. 저장된 엔티티를 DTO로 변환하여 반환합니다.
+        // 6. 알림 생성 (자기 자신은 제외)
+        Long recipientId = iLog.getUserProfile().getUserId();
+        if (!recipientId.equals(currentUser.getUserProfile().getUserId())) {
+            notificationComposer.ilogCommentCreated(
+                    recipientId,
+                    iLog.getId(),
+                    iLog.getLogDate(),
+                    currentUser.getUserProfile().getUserId(),
+                    currentUser.getUserProfile().getNickname()
+            );
+        }
+
+        // 7. 저장된 엔티티를 DTO로 변환하여 반환합니다.
         // 새로 생성된 댓글은 아직 '좋아요'를 누르지 않은 상태이므로 isLiked는 false입니다.
         return IlogCommentDto.from(savedComment, false);
     }

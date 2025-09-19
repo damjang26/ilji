@@ -291,4 +291,78 @@ public class NotificationComposer {
             notificationService.create(n);
         }
     }
+
+    /** ILog 댓글 알림 (게시물 단위로 묶음) */
+    public void ilogCommentCreated(Long recipientId, Long ilogId, java.time.LocalDate ilogDate, Long actorId, String actorName) {
+        String idempotencyKey = IdempotencyKey.instant(recipientId, NotificationType.COMMENT_CREATED, EntityType.DIARY, ilogId);
+
+        java.util.Optional<Notification> existingNotifOpt = notificationService.findByIdempotencyKey(idempotencyKey);
+
+        if (existingNotifOpt.isPresent()) {
+            // 기존 알림 업데이트
+            Notification n = existingNotifOpt.get();
+
+            Map<String, Object> meta = new HashMap<>();
+            try {
+                if (n.getMetaJson() != null && !n.getMetaJson().isEmpty()) {
+                    meta.putAll(objectMapper.readValue(n.getMetaJson(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}));
+                }
+            } catch (JsonProcessingException e) {
+                // JSON 파싱 실패 시, 그냥 새로 시작
+                meta = new HashMap<>();
+            }
+
+            List<Map<String, Object>> commenters = (List<Map<String, Object>>) meta.getOrDefault("commenters", new java.util.ArrayList<>());
+
+            // 이미 댓글 단 사람인지 확인
+            boolean alreadyCommented = commenters.stream().anyMatch(commenter -> ((Number)commenter.get("id")).longValue() == actorId);
+            if (alreadyCommented) {
+                return; // 이미 알림에 포함된 사용자면 아무것도 안 함
+            }
+
+            commenters.add(Map.of("id", actorId, "name", actorName));
+            meta.put("commenters", commenters);
+
+            String messageTitle;
+            if (commenters.size() > 1) {
+                String firstCommenterName = (String) commenters.get(0).get("name");
+                int otherCommentersCount = commenters.size() - 1;
+                String plural = otherCommentersCount > 1 ? "s" : "";
+                messageTitle = String.format("(%s) %s and %d other%s commented on your post.",
+                        ilogDate.format(java.time.format.DateTimeFormatter.ofPattern("MM/dd")),
+                        firstCommenterName, otherCommentersCount, plural);
+            } else {
+                messageTitle = String.format("(%s) %s commented on your post.",
+                        ilogDate.format(java.time.format.DateTimeFormatter.ofPattern("MM/dd")),
+                        actorName);
+            }
+
+            n.setMessageTitle(messageTitle);
+            n.setMetaJson(writeJson(meta));
+            n.setSenderId(actorId); // 마지막으로 댓글 단 사람으로 업데이트
+            n.setStatus(com.bj.ilji_server.notification.type.NotificationStatus.NEW); // 다시 NEW로 상태 변경
+            n.setCreatedAt(java.time.OffsetDateTime.now()); // 최신으로 시간 변경
+
+            notificationService.create(n); // save (update)
+        } else {
+            // 새 알림 생성
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("commenters", List.of(Map.of("id", actorId, "name", actorName)));
+
+            Notification n = new Notification();
+            n.setRecipientId(recipientId);
+            n.setSenderId(actorId);
+            n.setType(NotificationType.COMMENT_CREATED);
+            n.setEntityType(EntityType.DIARY);
+            n.setEntityId(ilogId);
+            n.setMessageTitle(String.format("(%s) %s commented on your post.",
+                    ilogDate.format(java.time.format.DateTimeFormatter.ofPattern("MM/dd")),
+                    actorName));
+            n.setLinkUrl("/journals/" + ilogId);
+            n.setIdempotencyKey(idempotencyKey);
+            n.setMetaJson(writeJson(meta));
+            
+            notificationService.create(n);
+        }
+    }
 }
