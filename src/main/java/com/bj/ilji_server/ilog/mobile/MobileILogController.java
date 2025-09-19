@@ -25,7 +25,7 @@ public class MobileILogController {
     private final ILogService ilogService;
     private final ObjectMapper objectMapper;
 
-    // [EXISTING] Create ILog
+    // [NEW] Create ILog
     @PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     public ResponseEntity<ILogResponse> createIlog(
             @RequestPart(value = "images", required = false) List<MultipartFile> images,
