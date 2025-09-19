@@ -46,6 +46,14 @@ public class ILogController {
     // ---------------------------------------------------
     // 1️⃣ 내 모든 일기 조회 (날짜 오름차순)
     // ---------------------------------------------------
+    @GetMapping("/{logId}")
+    public ResponseEntity<ILogResponse> getLogById(
+            @PathVariable Long logId,
+            @AuthenticationPrincipal User currentUser) {
+        ILogResponse log = ilogService.getLogById(logId, currentUser);
+        return ResponseEntity.ok(log);
+    }
+
     @GetMapping
     public ResponseEntity<List<ILogResponse>> getMyLogs(@AuthenticationPrincipal User user) {
         List<ILogResponse> logs = ilogService.getLogsForUser(user);

@@ -1,6 +1,7 @@
 package com.bj.ilji_server.ilog.service;
 
 import com.bj.ilji_server.firebase.FirebaseService;
+import com.bj.ilji_server.friend.entity.Friend; // Import Friend entity
 import com.bj.ilji_server.friend.repository.FriendRepository;
 import com.bj.ilji_server.ilog.dto.ILogCreateRequest;
 import com.bj.ilji_server.ilog.dto.ILogFeedResponseDto;
@@ -10,6 +11,7 @@ import com.bj.ilji_server.ilog.entity.ILog;
 import com.bj.ilji_server.ilog_comments.entity.IlogComment;
 import com.bj.ilji_server.ilog_comments.repository.IlogCommentRepository;
 import com.bj.ilji_server.ilog.repository.ILogRepository;
+import com.bj.ilji_server.notification.packing.NotificationComposer; // Import NotificationComposer
 import com.bj.ilji_server.user.entity.User;
 import com.bj.ilji_server.user.repository.UserRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -41,11 +43,12 @@ public class ILogService {
     private final FriendRepository friendRepository;
     private final FirebaseService firebaseService;
     private final ObjectMapper objectMapper;
+    private final NotificationComposer notificationComposer; // NotificationComposer 주입
 
     // 특정 사용자의 일기 목록 조회
     @Transactional(readOnly = true)
     public List<ILogResponse> getLogsForUser(User user) {
-        // ✅ [개선] N+1 문제를 방지하기 위해 JOIN FETCH를 사용하는 새로운 Repository 메서드를 호출합니다.
+        // ✅ [개선] N+1 문제를 방지하기 위해 JOIN FETCH를 사용하여 ILog와 UserProfile을 한 번의 쿼리로 조회합니다.
         // ILog와 UserProfile을 한 번의 쿼리로 함께 조회하여 성능을 최적화합니다.
         List<ILog> logs = ilogRepository.findAllByUserProfileUserIdWithUserProfile(user.getUserProfile().getUserId());
         return logs.stream()
@@ -127,6 +130,45 @@ public class ILogService {
     }
 
     @Transactional(readOnly = true)
+    public ILogResponse getLogById(Long logId, User currentUser) {
+        ILog log = ilogRepository.findById(logId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + logId));
+
+        User author = log.getUserProfile().getUser();
+
+        // 권한 확인
+        boolean canView = false;
+        if (author.getId().equals(currentUser.getId())) {
+            // 1. 본인 글은 항상 볼 수 있음
+            canView = true;
+        } else {
+            switch (log.getVisibility()) {
+                case PUBLIC:
+                    // 2. 전체 공개 글은 누구나 볼 수 있음
+                    canView = true;
+                    break;
+                case FRIENDS_ONLY:
+                    // 3. 친구 공개 글은 친구만 볼 수 있음 (요청자가 작성자를 팔로우하는 경우)
+                    if (friendRepository.existsByFollowerAndFollowing(currentUser, author)) {
+                        canView = true;
+                    }
+                    break;
+                case PRIVATE:
+                    // 4. 비공개 글은 본인 외 볼 수 없음 (위에서 이미 처리됨)
+                    canView = false;
+                    break;
+            }
+        }
+
+        if (!canView) {
+            throw new SecurityException("해당 일기를 볼 권한이 없습니다.");
+        }
+
+        IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(log.getId()).orElse(null);
+        return ILogResponse.fromEntity(log, bestComment, objectMapper, currentUser.getUserProfile().getUserId());
+    }
+
+    @Transactional(readOnly = true)
     public Page<ILogFeedResponseDto> getFeedForUser(User currentUser, int page, int size) {
         // ✅ [수정] pageable 객체를 먼저 생성해야 if문에서 사용할 수 있습니다.
         // 1. 최신순(createdAt 기준 내림차순)으로 정렬 조건을 설정한다.
@@ -196,7 +238,29 @@ public class ILogService {
 
         ILog savedIlog = ilogRepository.save(newIlog);
 
-        // 5. 저장된 Entity를 Response DTO로 변환하여 반환
+        // 5. 친구 포스트 알림 생성 로직 추가
+        // 비공개(PRIVATE) 일기가 아닐 경우에만 알림을 보냅니다.
+        if (savedIlog.getVisibility() != ILog.Visibility.PRIVATE) {
+            // 일기 작성자를 팔로우하는 모든 사용자(친구)를 조회합니다.
+            List<Friend> followers = friendRepository.findAllByFollowing(user);
+
+            // 각 팔로워에게 알림을 보냅니다.
+            for (Friend friend : followers) {
+                User followerUser = friend.getFollower();
+                // 작성자 본인에게는 알림을 보내지 않습니다.
+                if (!followerUser.getId().equals(user.getId())) {
+                    notificationComposer.friendDiaryCreated(
+                            followerUser.getId(), // 알림 수신자 ID
+                            user.getId(),         // 일기 작성자 ID
+                            savedIlog.getId(),    // 일기 ID
+                            user.getUserProfile().getNickname(), // 일기 작성자 이름 (UserProfile에서 가져옴)
+                            savedIlog.getLogDate().toString() // 일기 작성 날짜 (ISO 형식)
+                    );
+                }
+            }
+        }
+
+        // 6. 저장된 Entity를 Response DTO로 변환하여 반환
         // 새로 생성된 일기에는 댓글이 없으므로 bestComment는 null 입니다.
         return ILogResponse.fromEntity(savedIlog, null, objectMapper, user.getUserProfile().getUserId());
     }
@@ -292,6 +356,7 @@ public class ILogService {
             oldImageUrls = objectMapper.readValue(log.getImgUrl(), new TypeReference<>() {});
         }
 
+        // 2-2. 프론트에서 보낸 '유지할 이미지' 목록에 없는 기존 이미지는 Firebase에서 삭제합니다.
         // 2-2. 프론트에서 보낸 '유지할 이미지' 목록에 없는 기존 이미지는 Firebase에서 삭제합니다.
         List<String> existingUrlsToKeep = request.getExistingImageUrls() != null ? request.getExistingImageUrls() : new ArrayList<>();
 

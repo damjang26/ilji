@@ -5,6 +5,7 @@ import com.bj.ilji_server.likes.entity.Likes;
 import com.bj.ilji_server.likes.repository.LikesRepository;
 import com.bj.ilji_server.ilog.entity.ILog;
 import com.bj.ilji_server.ilog.repository.ILogRepository;
+import com.bj.ilji_server.notification.packing.NotificationComposer;
 import com.bj.ilji_server.user_profile.entity.UserProfile;
 import com.bj.ilji_server.user_profile.repository.UserProfileRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -23,6 +24,7 @@ public class LikesService {
     private final LikesRepository likesRepository;
     private final UserProfileRepository userProfileRepository;
     private final ILogRepository iLogRepository;
+    private final NotificationComposer notificationComposer;
 
     @Transactional
     public boolean toggleLike(Long ilogId, Long userId) {
@@ -44,6 +46,18 @@ public class LikesService {
             // 3-2. '좋아요'가 없으면 새로 생성하고 true를 반환합니다. (좋아요 추가)
             likesRepository.save(new Likes(userProfile, iLog));
             iLog.incrementLikeCount();
+
+            // ✅ 알림 생성 (자기 자신은 제외)
+            Long recipientId = iLog.getUserProfile().getUserId();
+            if (!recipientId.equals(userId)) {
+                notificationComposer.ilogLikeCreated(
+                        recipientId,
+                        iLog.getId(),
+                        userProfile.getUserId(),
+                        userProfile.getNickname()
+                );
+            }
+
             return true;
         }
     }

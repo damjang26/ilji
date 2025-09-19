@@ -140,14 +140,19 @@ public class NotificationComposer {
         meta.put("diaryId", diaryId);
         meta.put("date", dateIso);
 
+        // Parse dateIso and format it
+        LocalDate logDate = LocalDate.parse(dateIso);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd");
+        String formattedDate = logDate.format(formatter);
+
         Notification n = new Notification();
         n.setRecipientId(recipientId);
         n.setSenderId(authorId);
         n.setType(NotificationType.FRIEND_POST_CREATED);
         n.setEntityType(EntityType.DIARY); // ILog -> DIARY로 매핑
         n.setEntityId(diaryId);
-        n.setMessageTitle(authorName + " wrote a new log");
-        n.setLinkUrl("/ilog/" + diaryId);
+        n.setMessageTitle(authorName + " wrote a new log (" + formattedDate + ")"); // Modified line
+        n.setLinkUrl("/mypage/" + authorId);
         n.setIdempotencyKey(IdempotencyKey.instant(
                 recipientId, NotificationType.FRIEND_POST_CREATED, EntityType.DIARY, diaryId));
         n.setMetaJson(writeJson(meta));
@@ -217,5 +222,73 @@ public class NotificationComposer {
     private String writeJson(Object o) {
         try { return objectMapper.writeValueAsString(o); }
         catch (JsonProcessingException e) { return "{}"; }
+    }
+
+    /** ILog 좋아요 알림 (게시물 단위로 묶음) */
+    public void ilogLikeCreated(Long recipientId, Long ilogId, Long actorId, String actorName) {
+        String idempotencyKey = IdempotencyKey.instant(recipientId, NotificationType.LIKE_CREATED, EntityType.DIARY, ilogId);
+
+        java.util.Optional<Notification> existingNotifOpt = notificationService.findByIdempotencyKey(idempotencyKey);
+
+        if (existingNotifOpt.isPresent()) {
+            // 기존 알림 업데이트
+            Notification n = existingNotifOpt.get();
+            
+            Map<String, Object> meta = new HashMap<>();
+            try {
+                if (n.getMetaJson() != null && !n.getMetaJson().isEmpty()) {
+                    meta.putAll(objectMapper.readValue(n.getMetaJson(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}));
+                }
+            } catch (JsonProcessingException e) {
+                // JSON 파싱 실패 시, 그냥 새로 시작
+                meta = new HashMap<>();
+            }
+
+            List<Map<String, Object>> likers = (List<Map<String, Object>>) meta.getOrDefault("likers", new java.util.ArrayList<>());
+            
+            // 이미 좋아요 누른 사람인지 확인
+            boolean alreadyLiked = likers.stream().anyMatch(liker -> ((Number)liker.get("id")).longValue() == actorId);
+            if (alreadyLiked) {
+                return; // 이미 알림에 포함된 사용자면 아무것도 안 함
+            }
+
+            likers.add(Map.of("id", actorId, "name", actorName));
+            meta.put("likers", likers);
+
+            String messageTitle;
+            if (likers.size() > 1) {
+                String firstLikerName = (String) likers.get(0).get("name");
+                int otherLikersCount = likers.size() - 1;
+                String plural = otherLikersCount > 1 ? "s" : "";
+                messageTitle = firstLikerName + " and " + otherLikersCount + " other" + plural + " liked your post.";
+            } else {
+                messageTitle = actorName + " liked your post.";
+            }
+
+            n.setMessageTitle(messageTitle);
+            n.setMetaJson(writeJson(meta));
+            n.setSenderId(actorId); // 마지막으로 좋아요 누른 사람으로 업데이트
+            n.setStatus(com.bj.ilji_server.notification.type.NotificationStatus.NEW); // 다시 NEW로 상태 변경
+            n.setCreatedAt(java.time.OffsetDateTime.now()); // 최신으로 시간 변경
+
+            notificationService.create(n); // save (update)
+        } else {
+            // 새 알림 생성
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("likers", List.of(Map.of("id", actorId, "name", actorName)));
+
+            Notification n = new Notification();
+            n.setRecipientId(recipientId);
+            n.setSenderId(actorId);
+            n.setType(NotificationType.LIKE_CREATED);
+            n.setEntityType(EntityType.DIARY);
+            n.setEntityId(ilogId);
+            n.setMessageTitle(actorName + " liked your post.");
+            n.setLinkUrl("/journals/" + ilogId);
+            n.setIdempotencyKey(idempotencyKey);
+            n.setMetaJson(writeJson(meta));
+            
+            notificationService.create(n);
+        }
     }
 }
