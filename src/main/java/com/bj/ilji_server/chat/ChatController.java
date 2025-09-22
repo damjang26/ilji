@@ -43,7 +43,14 @@ public class ChatController {
             request.getUserIds().add(currentUser.getId());
         }
 
-        ChatRoom chatRoom = chatService.createChatRoom(request.getUserIds(), request.getRoomName());
+        ChatRoom chatRoom = chatService.createChatRoom(request.getUserIds(), request.getRoomName(), currentUser.getId());
         return ResponseEntity.ok(chatRoom);
+    }
+
+    @PostMapping("/{roomId}/leave")
+    public ResponseEntity<Void> leaveChatRoom(@PathVariable String roomId,
+                                              @AuthenticationPrincipal User currentUser) {
+        chatService.leaveChatRoom(roomId, currentUser.getId());
+        return ResponseEntity.ok().build();
     }
 }
