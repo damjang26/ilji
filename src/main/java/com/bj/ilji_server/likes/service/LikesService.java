@@ -53,6 +53,7 @@ public class LikesService {
                 notificationComposer.ilogLikeCreated(
                         recipientId,
                         iLog.getId(),
+                        iLog.getLogDate(),
                         userProfile.getUserId(),
                         userProfile.getNickname()
                 );

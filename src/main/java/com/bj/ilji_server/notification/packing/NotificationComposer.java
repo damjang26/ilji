@@ -225,7 +225,7 @@ public class NotificationComposer {
     }
 
     /** ILog 좋아요 알림 (게시물 단위로 묶음) */
-    public void ilogLikeCreated(Long recipientId, Long ilogId, Long actorId, String actorName) {
+    public void ilogLikeCreated(Long recipientId, Long ilogId, java.time.LocalDate ilogDate, Long actorId, String actorName) {
         String idempotencyKey = IdempotencyKey.instant(recipientId, NotificationType.LIKE_CREATED, EntityType.DIARY, ilogId);
 
         java.util.Optional<Notification> existingNotifOpt = notificationService.findByIdempotencyKey(idempotencyKey);
@@ -262,7 +262,9 @@ public class NotificationComposer {
                 String plural = otherLikersCount > 1 ? "s" : "";
                 messageTitle = firstLikerName + " and " + otherLikersCount + " other" + plural + " liked your post.";
             } else {
-                messageTitle = actorName + " liked your post.";
+                messageTitle = String.format("(%s) %s liked your post.",
+                        ilogDate.format(java.time.format.DateTimeFormatter.ofPattern("MM/dd")),
+                        actorName);
             }
 
             n.setMessageTitle(messageTitle);
@@ -283,7 +285,9 @@ public class NotificationComposer {
             n.setType(NotificationType.LIKE_CREATED);
             n.setEntityType(EntityType.DIARY);
             n.setEntityId(ilogId);
-            n.setMessageTitle(actorName + " liked your post.");
+            n.setMessageTitle(String.format("(%s) %s liked your post.",
+                    ilogDate.format(java.time.format.DateTimeFormatter.ofPattern("MM/dd")),
+                    actorName));
             n.setLinkUrl("/journals/" + ilogId);
             n.setIdempotencyKey(idempotencyKey);
             n.setMetaJson(writeJson(meta));
