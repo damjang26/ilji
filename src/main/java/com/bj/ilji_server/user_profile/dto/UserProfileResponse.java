@@ -16,6 +16,7 @@ public class UserProfileResponse {
     private final String phoneNumber;
     private final String profileImage;
     private final String bannerImage;
+    private final Double bannerPositionY;
     private final String gender;
     private final String region;
     private final String bio;
@@ -36,6 +37,7 @@ public class UserProfileResponse {
         this.phoneNumber = userProfile.getPhoneNumber();
         this.profileImage = userProfile.getProfileImage();
         this.bannerImage = userProfile.getBannerImage();
+        this.bannerPositionY = userProfile.getBannerPositionY();
         this.gender = userProfile.getGender();
         this.region = userProfile.getRegion();
         this.bio = userProfile.getBio();

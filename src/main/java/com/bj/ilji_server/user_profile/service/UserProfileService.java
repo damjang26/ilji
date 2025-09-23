@@ -85,6 +85,13 @@ public class UserProfileService {
             userProfile.setBannerImage(newBannerImageUrl);
         }
 
+        // [추가] 배너 이미지는 변경하지 않고 위치만 변경하는 경우
+        // request에 bannerPositionY 값이 있고, 새로운 배너 이미지 파일이 없을 때
+        if (request != null && request.getBannerPositionY() != null && (bannerImage == null || bannerImage.isEmpty())) {
+            // UserProfile 엔티티의 bannerPositionY 필드를 직접 업데이트합니다.
+            userProfile.setBannerPositionY(request.getBannerPositionY());
+        }
+
         // 4. 텍스트 정보 업데이트 (request가 null이 아닐 경우에만)
         if (request != null) {
             userProfile.update(request);
