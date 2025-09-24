@@ -84,4 +84,9 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
            countQuery = "SELECT count(i) FROM ILog i JOIN i.likes l " +
                         "WHERE l.userProfile.userId = :userId")
     Page<ILog> findLikedILogsByUserOrderByLikedAt(@Param("userId") Long userId, Pageable pageable);
+
+    // ---------------------------------------------------
+    // 🆕 [추가] 특정 사용자의 총 게시물 수 조회
+    // ---------------------------------------------------
+    long countByUserProfileUserId(Long userProfileId);
 }

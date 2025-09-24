@@ -23,12 +23,19 @@ public class UserProfileResponse {
     private final boolean isPrivate;
     private final String interests;
 
+    // [추가] 사용자 통계 정보
+    private final long postCount;
+    private final long followingCount;
+    private final long followerCount;
+
     // Entity를 DTO로 변환하는 정적 팩토리 메소드
-    public static UserProfileResponse from(UserProfile userProfile) {
-        return new UserProfileResponse(userProfile);
+    // [수정] 통계 정보를 함께 받도록 파라미터 추가
+    public static UserProfileResponse from(UserProfile userProfile, long postCount, long followingCount, long followerCount) {
+        return new UserProfileResponse(userProfile, postCount, followingCount, followerCount);
     }
 
-    private UserProfileResponse(UserProfile userProfile) {
+    // [수정] 생성자에서 통계 정보를 받아서 초기화
+    private UserProfileResponse(UserProfile userProfile, long postCount, long followingCount, long followerCount) {
         this.userId = userProfile.getUserId();
         this.email = userProfile.getUser().getEmail(); // 연관된 User 정보 사용
         this.name = userProfile.getUser().getName();
@@ -43,5 +50,8 @@ public class UserProfileResponse {
         this.bio = userProfile.getBio();
         this.isPrivate = userProfile.isAccountPrivate();
         this.interests = userProfile.getInterests();
+        this.postCount = postCount;
+        this.followingCount = followingCount;
+        this.followerCount = followerCount;
     }
 }
