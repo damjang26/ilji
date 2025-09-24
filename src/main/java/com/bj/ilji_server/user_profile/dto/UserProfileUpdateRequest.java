@@ -21,4 +21,5 @@ public class UserProfileUpdateRequest {
     @JsonProperty("isPrivate")
     private boolean isPrivate;
     private String interests;
+    private Double bannerPositionY;
 }
