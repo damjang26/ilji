@@ -37,7 +37,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**", "/error", "/ws/**", "/api/proxy/**").permitAll()
                         .requestMatchers("/api/auth/**", "/error").permitAll()
                         .requestMatchers("/api/proxy/**", "/error").permitAll()
-                        .requestMatchers("/api/mobile/i-log/**").permitAll()
+                        .requestMatchers("/api/mobile/i-log/**").authenticated()
                         .requestMatchers("/api/chat/**").permitAll()
                         .requestMatchers("/api/schedules/**").authenticated()
                         .requestMatchers("/api/firebase/**").authenticated()

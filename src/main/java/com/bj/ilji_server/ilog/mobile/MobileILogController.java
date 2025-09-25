@@ -38,6 +38,9 @@ public class MobileILogController {
     // [NEW] Get all my logs
     @GetMapping
     public ResponseEntity<List<ILogResponse>> getMyLogs(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.ok(java.util.Collections.emptyList());
+        }
         List<ILogResponse> logs = ilogService.getLogsForUser(user);
         return ResponseEntity.ok(logs);
     }
