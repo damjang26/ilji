@@ -9,6 +9,6 @@ import java.util.List;
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, String> {
 
     // JPQL 쿼리를 사용하여 특정 사용자가 참여한 모든 채팅방을 찾습니다.
-    @Query("SELECT cr FROM ChatRoom cr JOIN cr.participants p WHERE p.user.id = :userId")
+    @Query("SELECT DISTINCT cr FROM ChatRoom cr LEFT JOIN FETCH cr.participants p LEFT JOIN FETCH p.user u WHERE cr.roomId IN (SELECT p2.chatRoom.roomId FROM ChatParticipant p2 WHERE p2.user.id = :userId AND p2.isActive = true) ORDER BY cr.createdAt DESC")
     List<ChatRoom> findChatRoomsByUserId(@Param("userId") Long userId);
 }

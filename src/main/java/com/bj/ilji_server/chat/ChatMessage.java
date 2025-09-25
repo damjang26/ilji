@@ -15,5 +15,11 @@ public class ChatMessage {
     private String sender;
     private String receiver;
     private String message;
+    private MessageType messageType; // 메시지 타입 (일반, 시스템 메시지 등)
     private LocalDateTime timestamp;
+
+    public enum MessageType {
+        NORMAL,
+        SYSTEM
+    }
 }

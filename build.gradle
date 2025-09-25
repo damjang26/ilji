@@ -84,6 +84,9 @@ dependencies {
     // Jackson Hibernate Module for Lazy Loading
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-hibernate6'
 
+    // Jackson Module for Java 8 Date/Time API
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
 }
 
 
