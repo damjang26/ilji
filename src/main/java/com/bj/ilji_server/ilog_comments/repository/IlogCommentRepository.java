@@ -19,25 +19,30 @@ public interface IlogCommentRepository extends JpaRepository<IlogComment, Long> 
      * @param ilogId 일기 ID
      * @return 정렬된 댓글 목록
      */
-    // ✅ [개선] like_count 컬럼을 직접 사용하여 정렬하도록 쿼리 변경 (성능 향상)
-    @Query("SELECT DISTINCT c FROM IlogComment c " +
+    // ✅ [수정] 현재 사용자의 '좋아요' 여부(isLiked)를 함께 조회하도록 쿼리 변경
+    @Query("SELECT DISTINCT c, " +
+           "(CASE WHEN EXISTS (SELECT 1 FROM IlogCommentLike icl WHERE icl.ilogComment = c AND icl.userProfile.userId = :currentUserId) THEN true ELSE false END) as isLiked " +
+           "FROM IlogComment c " +
            "LEFT JOIN FETCH c.userProfile " +
            "WHERE c.ilog.id = :ilogId AND c.parent IS NULL " +
            "AND (c.isDeleted = false OR EXISTS (SELECT 1 FROM c.children ch WHERE ch.isDeleted = false)) " +
            "ORDER BY c.likeCount DESC, c.createdAt DESC")
-    List<IlogComment> findTopLevelCommentsByIlogIdOrderByLikes(@Param("ilogId") Long ilogId);
+    List<Object[]> findTopLevelCommentsWithLikeStatusByIlogIdOrderByLikes(@Param("ilogId") Long ilogId, @Param("currentUserId") Long currentUserId);
 
     /**
      * 특정 일기(ilogId)에 달린 최상위 댓글 목록을 '최신순'으로 조회합니다.
      * @param ilogId 일기 ID
      * @return 정렬된 댓글 목록
      */
-    @Query("SELECT DISTINCT c FROM IlogComment c " +
+    // ✅ [수정] 현재 사용자의 '좋아요' 여부(isLiked)를 함께 조회하도록 쿼리 변경
+    @Query("SELECT DISTINCT c, " +
+           "(CASE WHEN EXISTS (SELECT 1 FROM IlogCommentLike icl WHERE icl.ilogComment = c AND icl.userProfile.userId = :currentUserId) THEN true ELSE false END) as isLiked " +
+           "FROM IlogComment c " +
            "LEFT JOIN FETCH c.userProfile " +
            "WHERE c.ilog.id = :ilogId AND c.parent IS NULL " +
            "AND (c.isDeleted = false OR EXISTS (SELECT 1 FROM c.children ch WHERE ch.isDeleted = false)) " +
            "ORDER BY c.createdAt DESC")
-    List<IlogComment> findTopLevelCommentsByIlogIdOrderByRecent(@Param("ilogId") Long ilogId);
+    List<Object[]> findTopLevelCommentsWithLikeStatusByIlogIdOrderByRecent(@Param("ilogId") Long ilogId, @Param("currentUserId") Long currentUserId);
 
     @Query("SELECT c FROM IlogComment c JOIN FETCH c.userProfile WHERE c.id = :commentId")
     Optional<IlogComment> findByIdWithUser(@Param("commentId") Long commentId);

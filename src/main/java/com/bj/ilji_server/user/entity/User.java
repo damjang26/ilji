@@ -2,6 +2,7 @@ package com.bj.ilji_server.user.entity;
 
 import com.bj.ilji_server.user_profile.entity.UserProfile;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -32,6 +33,7 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String name;
 
+    @JsonProperty("profile_image_url")
     private String picture;
 
     @Column(nullable = false)

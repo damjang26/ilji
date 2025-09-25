@@ -25,6 +25,8 @@ public class ChatRoom {
     @Enumerated(EnumType.STRING)
     private RoomType roomType; // 채팅방 타입
 
+    private Long creatorId; // 채팅방 생성자 ID (이 필드가 누락되어 있었습니다.)
+
     // ChatRoom 하나는 여러 명의 참여자(ChatParticipant)를 가짐
     @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference

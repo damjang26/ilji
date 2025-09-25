@@ -1,5 +1,7 @@
 package com.bj.ilji_server.user_profile.service;
 
+import com.bj.ilji_server.friend.repository.FriendRepository;
+import com.bj.ilji_server.ilog.repository.ILogRepository;
 import com.bj.ilji_server.firebase.FirebaseService;
 import com.bj.ilji_server.user.constant.UserProfileConstant;
 import com.bj.ilji_server.user.dto.UserSearchResponse;
@@ -28,6 +30,10 @@ public class UserProfileService {
     private final UserRepository userRepository;
     private final FirebaseService firebaseService;
 
+    // [추가] 통계 계산을 위해 Repository 주입
+    private final ILogRepository iLogRepository;
+    private final FriendRepository friendRepository;
+
     private boolean isFirebaseUrl(String url) {
         return url != null && url.startsWith("https://firebasestorage.googleapis.com/");
     }
@@ -41,7 +47,13 @@ public class UserProfileService {
         UserProfile profile = userProfileRepository.findById(user.getId())
                 .orElseGet(() -> createNewProfile(user)); // 프로필이 없으면 새로 생성
 
-        return UserProfileResponse.from(profile);
+        // [추가] 통계 정보 계산
+        long postCount = iLogRepository.countByUserProfileUserId(profile.getUserId());
+        long followingCount = friendRepository.countByFollower(user);
+        long followerCount = friendRepository.countByFollowing(user);
+
+        // [수정] DTO 생성 시 계산된 통계 정보를 함께 전달
+        return UserProfileResponse.from(profile, postCount, followingCount, followerCount);
     }
 
     @Transactional
@@ -83,6 +95,13 @@ public class UserProfileService {
             deleteImageFromFirebase(userProfile.getBannerImage());
             String newBannerImageUrl = firebaseService.uploadFile(bannerImage, "banner_images");
             userProfile.setBannerImage(newBannerImageUrl);
+        }
+
+        // [추가] 배너 이미지는 변경하지 않고 위치만 변경하는 경우
+        // request에 bannerPositionY 값이 있고, 새로운 배너 이미지 파일이 없을 때
+        if (request != null && request.getBannerPositionY() != null && (bannerImage == null || bannerImage.isEmpty())) {
+            // UserProfile 엔티티의 bannerPositionY 필드를 직접 업데이트합니다.
+            userProfile.setBannerPositionY(request.getBannerPositionY());
         }
 
         // 4. 텍스트 정보 업데이트 (request가 null이 아닐 경우에만)
@@ -139,7 +158,15 @@ public class UserProfileService {
     @Transactional(readOnly = true)
     public UserProfileResponse getProfileByUserId(Long userId) {
         UserProfile userProfile = findOrCreateProfile(userId);
-        return UserProfileResponse.from(userProfile);
+        User user = userProfile.getUser();
+
+        // [추가] 통계 정보 계산
+        long postCount = iLogRepository.countByUserProfileUserId(userProfile.getUserId());
+        long followingCount = friendRepository.countByFollower(user);
+        long followerCount = friendRepository.countByFollowing(user);
+
+        // [수정] DTO 생성 시 계산된 통계 정보를 함께 전달
+        return UserProfileResponse.from(userProfile, postCount, followingCount, followerCount);
     }
 
     /**

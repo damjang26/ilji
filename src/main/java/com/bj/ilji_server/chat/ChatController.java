@@ -21,9 +21,7 @@ public class ChatController {
 
     @GetMapping("/list")
     public ResponseEntity<List<ChatRoom>> list(Authentication authentication) {
-        // SecurityConfig에서 permitAll()로 설정했더라도, 토큰이 있으면 Authentication 객체가 주입됩니다.
         if (authentication == null) {
-            // 토큰 없이 접근한 경우, 비어있는 목록이나 에러를 반환할 수 있습니다.
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -45,7 +43,14 @@ public class ChatController {
             request.getUserIds().add(currentUser.getId());
         }
 
-        ChatRoom chatRoom = chatService.createChatRoom(request.getUserIds(), request.getRoomName());
+        ChatRoom chatRoom = chatService.createChatRoom(request.getUserIds(), request.getRoomName(), currentUser.getId());
         return ResponseEntity.ok(chatRoom);
+    }
+
+    @PostMapping("/{roomId}/leave")
+    public ResponseEntity<Void> leaveChatRoom(@PathVariable String roomId,
+                                              @AuthenticationPrincipal User currentUser) {
+        chatService.leaveChatRoom(roomId, currentUser.getId());
+        return ResponseEntity.ok().build();
     }
 }

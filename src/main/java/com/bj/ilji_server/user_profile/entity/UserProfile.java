@@ -48,6 +48,9 @@ public class UserProfile {
     @Column(name = "BANNER_IMAGE", length = 255)
     private String bannerImage;
 
+    @Column(name = "BANNER_POSITION_Y")
+    private Double bannerPositionY;
+
     @Column(name = "GENDER", length = 10)
     private String gender;
 
@@ -77,6 +80,10 @@ public class UserProfile {
         this.user = user;
         this.profileImage = profileImage;
         this.bannerImage = bannerImage;
+    }
+
+    public void setBannerPositionY(Double bannerPositionY) {
+        this.bannerPositionY = bannerPositionY;
     }
 
     //== Business Logic (State-Changing Methods) ==//
@@ -112,6 +119,9 @@ public class UserProfile {
         }
         if (request.getPhoneNumber() != null) {
             this.phoneNumber = request.getPhoneNumber();
+        }
+        if (request.getBannerPositionY() != null) {
+            this.bannerPositionY = request.getBannerPositionY();
         }
         this.accountPrivate = request.isPrivate();
     }

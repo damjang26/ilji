@@ -81,12 +81,11 @@ dependencies {
     // mongodb
     implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
 
-    //    중복 알림 방지
-    implementation 'commons-codec:commons-codec'
+    // Jackson Hibernate Module for Lazy Loading
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-hibernate6'
 
-    // 실시간 반영 웹 소켓
-    implementation 'org.springframework.boot:spring-boot-starter-websocket'
-
+    // Jackson Module for Java 8 Date/Time API
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
 }
 

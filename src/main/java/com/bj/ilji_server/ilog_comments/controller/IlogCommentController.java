@@ -28,9 +28,12 @@ public class IlogCommentController {
     public ResponseEntity<List<IlogCommentDto>> getComments(
             @PathVariable Long ilogId,
             // 'sortBy' 파라미터를 받습니다. 값이 없으면 기본으로 "likes"를 사용합니다.
-            @RequestParam(name = "sortBy", defaultValue = "likes") String sortBy
+            @RequestParam(name = "sortBy", defaultValue = "likes") String sortBy,
+            // ✅ [수정] 현재 로그인한 사용자 정보를 받아옵니다. 비로그인 사용자의 경우 null이 됩니다.
+            @AuthenticationPrincipal User user
     ) {
-        List<IlogCommentDto> comments = ilogCommentService.getCommentsByIlogId(ilogId, sortBy);
+        // ✅ [수정] 서비스 메서드에 user 객체를 전달합니다.
+        List<IlogCommentDto> comments = ilogCommentService.getCommentsByIlogId(ilogId, sortBy, user);
         return ResponseEntity.ok(comments);
     }
 

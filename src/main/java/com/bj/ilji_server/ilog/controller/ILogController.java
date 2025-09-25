@@ -8,6 +8,8 @@ import com.bj.ilji_server.ilog.service.ILogService;
 import com.bj.ilji_server.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,6 +26,22 @@ import java.util.List;
 public class ILogController {
 
     private final ILogService ilogService;
+
+    /**
+     * 내 일기 목록을 기간별로 조회합니다. (기존 getMyLogs 수정)
+     * GET /api/i-log?startDate=2023-09-01&endDate=2023-09-30
+     */
+    @GetMapping
+    public ResponseEntity<List<ILogResponse>> getMyLogs(
+            @AuthenticationPrincipal User user,
+            @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        // 서비스 계층에 user와 날짜 범위를 전달합니다.
+        List<ILogResponse> logs = ilogService.getLogsForUserByDateRange(user, startDate, endDate);
+        return ResponseEntity.ok(logs);
+    }
+
 
     // ---------------------------------------------------
     // 🆕 소셜 피드 조회 (페이징)
@@ -46,25 +64,55 @@ public class ILogController {
     // ---------------------------------------------------
     // 1️⃣ 내 모든 일기 조회 (날짜 오름차순)
     // ---------------------------------------------------
-    @GetMapping
-    public ResponseEntity<List<ILogResponse>> getMyLogs(@AuthenticationPrincipal User user) {
-        List<ILogResponse> logs = ilogService.getLogsForUser(user);
-        return ResponseEntity.ok(logs);
-    }
+//    @GetMapping("/{logId}")
+//    public ResponseEntity<ILogResponse> getLogById(
+//            @PathVariable Long logId,
+//            @AuthenticationPrincipal User currentUser) {
+//        ILogResponse log = ilogService.getLogById(logId, currentUser);
+//        return ResponseEntity.ok(log);
+//    }
+
 
     // ---------------------------------------------------
-    // 🆕 [추가] 특정 사용자의 모든 일기 조회 (친구 마이페이지용)
+    // 🆕 [수정] 특정 사용자의 일기 목록 조회 (페이징 및 정렬 적용)
     // ---------------------------------------------------
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<ILogResponse>> getLogsByUserId(
+    public ResponseEntity<Page<ILogResponse>> getLogsByUserId(
             @PathVariable Long userId,
-            @AuthenticationPrincipal User currentUser // ✅ [추가] 현재 로그인한 사용자 정보를 가져옵니다.
+            @AuthenticationPrincipal User currentUser,
+            Pageable pageable // ✅ [추가] page, size, sort 파라미터를 자동으로 매핑합니다.
     ) {
-        // ✅ [수정] 서비스에 조회 대상 ID(userId)와 현재 사용자 정보(currentUser)를 함께 전달합니다.
-        List<ILogResponse> logs = ilogService.getLogsByUserId(userId, currentUser);
+        // ✅ [수정] 페이지네이션을 처리하는 새로운 서비스 메소드를 호출합니다.
+        Page<ILogResponse> logs = ilogService.getPagedLogsByUserId(userId, currentUser, pageable);
         return ResponseEntity.ok(logs);
     }
 
+    // ---------------------------------------------------
+    //  특정 사용자가 '좋아요' 누른 일기 목록 조회
+    // ---------------------------------------------------
+    /**
+     * 특정 사용자가 '좋아요'를 누른 일기 목록을 조회합니다.
+     * @param userId 조회할 사용자의 ID. null일 경우 현재 로그인한 사용자를 대상으로 합니다.
+     * @param sortBy 정렬 기준 ('liked_at': 좋아요 누른 순, 'uploaded_at': 일기 작성 순, 'popular': 인기순)
+     * @param page 페이지 번호
+     * @param size 페이지 크기
+     * @param currentUser 현재 로그인한 사용자 정보
+     * @return '좋아요' 누른 일기 목록 (페이징 처리)
+     */
+    @GetMapping("/liked")
+    public ResponseEntity<Page<ILogFeedResponseDto>> getLikedILogs(
+            @RequestParam(required = false) Long userId,
+            @RequestParam(defaultValue = "liked_at") String sortBy,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal User currentUser) {
+
+        // 조회 대상 사용자의 ID를 결정합니다 (파라미터가 없으면 현재 사용자).
+        Long targetUserId = (userId == null) ? currentUser.getId() : userId;
+
+        Page<ILogFeedResponseDto> likedILogs = ilogService.getLikedILogsByUser(targetUserId, currentUser, sortBy, page, size);
+        return ResponseEntity.ok(likedILogs);
+    }
 
     // ---------------------------------------------------
     // 2️⃣ 일기 등록
@@ -92,38 +140,6 @@ public class ILogController {
 
         LocalDate date = LocalDate.parse(dateStr); // "YYYY-MM-DD" 형식 가정
         ILogResponse log = ilogService.getLogByDate(user, date);
-        if (log == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(log);
-    }
-
-    // ---------------------------------------------------
-    // 4️⃣ 이전 일기 조회
-    // ---------------------------------------------------
-    @GetMapping("/previous/{date}")
-    public ResponseEntity<ILogResponse> getPreviousLog(
-            @AuthenticationPrincipal User user,
-            @PathVariable("date") String dateStr) {
-
-        LocalDate date = LocalDate.parse(dateStr);
-        ILogResponse log = ilogService.getPreviousLog(user, date);
-        if (log == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(log);
-    }
-
-    // ---------------------------------------------------
-    // 5️⃣ 다음 일기 조회
-    // ---------------------------------------------------
-    @GetMapping("/next/{date}")
-    public ResponseEntity<ILogResponse> getNextLog(
-            @AuthenticationPrincipal User user,
-            @PathVariable("date") String dateStr) {
-
-        LocalDate date = LocalDate.parse(dateStr);
-        ILogResponse log = ilogService.getNextLog(user, date);
         if (log == null) {
             return ResponseEntity.notFound().build();
         }
