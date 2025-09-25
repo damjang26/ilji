@@ -10,9 +10,9 @@ import com.bj.ilji_server.schedule.entity.Schedule;
 import com.bj.ilji_server.schedule.dto.ScheduleResponse;
 import com.bj.ilji_server.schedule.repository.ScheduleRepository;
 import com.bj.ilji_server.user.entity.User;
-import com.bj.ilji_server.friend.dto.FriendshipStatus;
 import com.bj.ilji_server.tag.entity.TagVisibility;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -231,6 +231,4 @@ public class ScheduleService {
 
         throw new IllegalArgumentException("Unsupported temporal type: " + t.getClass());
     }
-
-
 }

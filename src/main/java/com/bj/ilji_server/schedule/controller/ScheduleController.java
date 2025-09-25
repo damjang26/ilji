@@ -44,7 +44,7 @@ public class ScheduleController {
      * GET /api/schedules?tagIds=1,2,3,null
      */
     @GetMapping
-    public ResponseEntity<List<ScheduleResponse>> getSchedulesForUser(
+    public ResponseEntity<List<ScheduleResponse>> getMySchedules(
             @AuthenticationPrincipal User user,
             @RequestParam(value = "tagIds", required = false) String tagIdsString) { // Changed to String
 

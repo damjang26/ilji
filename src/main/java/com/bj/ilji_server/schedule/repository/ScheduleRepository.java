@@ -2,7 +2,8 @@ package com.bj.ilji_server.schedule.repository;
 
 import com.bj.ilji_server.schedule.entity.Schedule;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.*;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
