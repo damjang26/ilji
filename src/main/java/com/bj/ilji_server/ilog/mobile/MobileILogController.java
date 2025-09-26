@@ -17,6 +17,8 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 
+// 푸시 용 주석
+
 @RestController
 @RequestMapping("/api/mobile/i-log")
 @RequiredArgsConstructor
