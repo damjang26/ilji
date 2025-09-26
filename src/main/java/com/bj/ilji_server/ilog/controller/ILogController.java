@@ -60,19 +60,6 @@ public class ILogController {
         return ResponseEntity.ok(feedPage);
     }
 
-
-    // ---------------------------------------------------
-    // 1️⃣ 내 모든 일기 조회 (날짜 오름차순)
-    // ---------------------------------------------------
-//    @GetMapping("/{logId}")
-//    public ResponseEntity<ILogResponse> getLogById(
-//            @PathVariable Long logId,
-//            @AuthenticationPrincipal User currentUser) {
-//        ILogResponse log = ilogService.getLogById(logId, currentUser);
-//        return ResponseEntity.ok(log);
-//    }
-
-
     // ---------------------------------------------------
     // 🆕 [수정] 특정 사용자의 일기 목록 조회 (페이징 및 정렬 적용)
     // ---------------------------------------------------
