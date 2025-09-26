@@ -1,5 +1,6 @@
 package com.bj.ilji_server.ilog.service;
 
+
 import com.bj.ilji_server.firebase.FirebaseService;
 import com.bj.ilji_server.friend.entity.Friend; // Import Friend entity
 import com.bj.ilji_server.friend.repository.FriendRepository;
@@ -21,6 +22,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,6 +33,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -132,73 +136,38 @@ public class ILogService {
     }
 
     @Transactional(readOnly = true)
-    public ILogResponse getLogById(Long logId, User currentUser) {
-        ILog log = ilogRepository.findById(logId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + logId));
-
-        User author = log.getUserProfile().getUser();
-
-        // 권한 확인
-        boolean canView = false;
-        if (author.getId().equals(currentUser.getId())) {
-            // 1. 본인 글은 항상 볼 수 있음
-            canView = true;
-        } else {
-            switch (log.getVisibility()) {
-                case PUBLIC:
-                    // 2. 전체 공개 글은 누구나 볼 수 있음
-                    canView = true;
-                    break;
-                case FRIENDS_ONLY:
-                    // 3. 친구 공개 글은 친구만 볼 수 있음 (요청자가 작성자를 팔로우하는 경우)
-                    if (friendRepository.existsByFollowerAndFollowing(currentUser, author)) {
-                        canView = true;
-                    }
-                    break;
-                case PRIVATE:
-                    // 4. 비공개 글은 본인 외 볼 수 없음 (위에서 이미 처리됨)
-                    canView = false;
-                    break;
-            }
-        }
-
-        if (!canView) {
-            throw new SecurityException("해당 일기를 볼 권한이 없습니다.");
-        }
-
-        // ✅ [개선] 베스트 댓글 조회 로직 제거
-        return ILogResponse.fromEntity(log, null, objectMapper, currentUser.getUserProfile().getUserId());
-    }
-
-    @Transactional(readOnly = true)
     public Page<ILogFeedResponseDto> getFeedForUser(User currentUser, int page, int size) {
         // ✅ [수정] pageable 객체를 먼저 생성해야 if문에서 사용할 수 있습니다.
         // 1. 최신순(createdAt 기준 내림차순)으로 정렬 조건을 설정한다.
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        // 2. 내가 팔로우하는 사람들의 ID 목록을 조회한다.
-        // ✅ [수정] User ID가 아닌, UserProfile의 ID 목록을 가져와야 합니다.
+        // 2. 내가 팔로우하는 사람들의 프로필 ID 목록을 조회한다.
         List<Long> followingProfileIds = friendRepository.findAllByFollower(currentUser)
                 .stream()
                 .map(friend -> friend.getFollowing().getUserProfile().getUserId())
                 .collect(Collectors.toList());
 
-        // 3. [개선] 만약 팔로우하는 사용자가 없다면, 빈 리스트를 전달하여 불필요한 쿼리 조건을 피합니다.
-        // JPA와 대부분의 DB는 빈 리스트를 잘 처리하지만, 명시적으로 비어있음을 나타내는 것이 더 안전할 수 있습니다.
-        // ✅ [개선] new ArrayList<>() 대신 Collections.emptyList()를 사용하여 불변의 빈 리스트를 명시적으로 사용합니다.
-        if (followingProfileIds.isEmpty()) {
-            return Page.empty(pageable); // 팔로우하는 사람이 없으면 비어있는 페이지를 즉시 반환하여 불필요한 DB 조회를 막습니다.
-        }
+        // 3. 나를 팔로우하는 사람들의 프로필 ID 목록을 조회한다.
+        List<Long> followerProfileIds = friendRepository.findAllByFollowing(currentUser)
+                .stream()
+                .map(friend -> friend.getFollower().getUserProfile().getUserId())
+                .collect(Collectors.toList());
 
-        // 4. ✅ [개선] N+1 문제를 방지하기 위해 DTO로 직접 조회하는 Repository 메서드를 호출합니다.
-        return ilogRepository.findFeedAsDtoByUserProfileIdAndFollowingIds(
+        // 4. '서로 팔로우'하는 친구(friends)의 프로필 ID 목록을 계산한다. (교집합)
+        List<Long> friendProfileIds = followingProfileIds.stream()
+                .filter(followerProfileIds::contains)
+                .collect(Collectors.toList());
+
+        // 5. ✅ [수정] Repository의 변경된 메서드(findCustomFeedForUser)를 호출합니다.
+        // N+1 문제를 방지하고 '친구 공개' 게시물까지 포함하여 피드를 조회합니다.
+        return ilogRepository.findCustomFeedForUser(
                 currentUser.getUserProfile().getUserId(),
                 followingProfileIds,
-                ILog.Visibility.PUBLIC, // 다른 사람의 글은 '공개'만
+                friendProfileIds,
+                ILog.Visibility.PUBLIC,       // '전체 공개' 상태값 전달
+                ILog.Visibility.FRIENDS_ONLY, // '친구 공개' 상태값 전달
                 pageable
         );
-
-        // 5. 조회된 DTO 페이지를 그대로 반환하므로, 기존의 .map() 변환 로직은 필요 없습니다.
     }
 
     // ✅ [수정] 일기 등록 메서드를 이미지 파일(MultipartFile)을 함께 처리하도록 변경합니다.
@@ -276,13 +245,13 @@ public class ILogService {
     @Transactional
     public void deleteLog(User user, Long logId) {
         ILog log = ilogRepository.findById(logId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + logId));
+                .orElseThrow(() -> new IllegalArgumentException("ILog not found with id: " + logId));
 
         // ✅ [수정] 소유권 검사를 UserProfile의 User ID와 현재 로그인한 User의 ID를 비교합니다.
         // [수정] @MapsId 관계로 인해 userProfile.getUserId()가 null일 수 있으므로,
         // userProfile에 연결된 User 객체의 ID를 통해 비교해야 정확합니다.
         if (!log.getUserProfile().getUser().getId().equals(user.getId())) {
-            throw new SecurityException("일기를 삭제할 권한이 없습니다.");
+            throw new SecurityException("You do not have permission to delete this log.");
         }
 
         // ✅ 이미지 삭제 (실패 시 예외 → 트랜잭션 롤백)
@@ -297,7 +266,7 @@ public class ILogService {
                     firebaseService.deleteFile(url); // 이제 실패하면 IOException 던짐
                 }
             } catch (Exception e) {
-                throw new RuntimeException("이미지 삭제에 실패했습니다. 일기 삭제를 중단합니다.", e);
+                throw new RuntimeException("Failed to delete images. Halting log deletion.", e);
             }
         }
 
@@ -311,13 +280,13 @@ public class ILogService {
     public ILogResponse updateLog(Long logId, User user, ILogUpdateRequest request, List<MultipartFile> newImages) throws IOException {
         // 1. 일기 조회 및 수정 권한 확인
         ILog log = ilogRepository.findById(logId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + logId));
+                .orElseThrow(() -> new IllegalArgumentException("ILog not found with id: " + logId));
 
         // [수정] @MapsId 관계로 인해 userProfile.getUserId()가 null일 수 있으므로,
         // userProfile에 연결된 User 객체의 ID를 통해 비교해야 정확합니다.
         if (!log.getUserProfile().getUser().getId().equals(user.getId())) {
             // ✅ [개선] 권한 없음 예외는 SecurityException을 사용하는 것이 더 의미에 맞습니다.
-            throw new SecurityException("일기를 수정할 권한이 없습니다.");
+            throw new SecurityException("You do not have permission to update this log.");
         }
 
         // 2. 이미지 변경 처리
@@ -339,7 +308,7 @@ public class ILogService {
             try {
                 firebaseService.deleteFile(url);
             } catch (Exception e) {
-                throw new RuntimeException("기존 이미지 삭제에 실패했습니다. 일기 수정을 중단합니다.", e);
+                throw new RuntimeException("Failed to delete existing images. Halting log update.", e);
             }
         }
 
@@ -365,4 +334,87 @@ public class ILogService {
         return ILogResponse.fromEntity(log, null, objectMapper, user.getUserProfile().getUserId());
     }
 
+    /**
+     * ✅ [신규] 특정 일기의 공유 ID를 조회하거나 생성합니다.
+     * @param logId 공유 ID를 생성할 일기의 ID
+     * @return 생성되거나 조회된 공유 ID
+     */
+    @Transactional
+    public String getOrCreateShareId(Long logId) {
+        // 1. 일기를 조회합니다. 없으면 예외를 발생시킵니다.
+        ILog log = ilogRepository.findById(logId)
+                .orElseThrow(() -> new IllegalArgumentException("ILog not found with id: " + logId));
+
+        // 2. shareId가 이미 존재하는지 확인합니다.
+        if (log.getShareId() != null && !log.getShareId().isBlank()) {
+            return log.getShareId(); // 이미 있으면 그대로 반환
+        }
+
+        // 3. shareId가 없으면, 중복되지 않는 9자리 랜덤 숫자를 생성합니다.
+        String newShareId;
+        do {
+            // 100,000,000 ~ 999,999,999 사이의 9자리 숫자 생성
+            int randomNumber = 100_000_000 + ThreadLocalRandom.current().nextInt(900_000_000);
+            newShareId = String.valueOf(randomNumber);
+        } while (ilogRepository.existsByShareId(newShareId)); // DB에 이미 존재하는 ID인지 확인
+
+        // 4. 생성된 고유 ID를 엔티티에 설정하고 저장합니다.
+        // @Transactional에 의해 메서드 종료 시 자동으로 UPDATE 쿼리가 실행됩니다.
+        log.setShareId(newShareId);
+
+        return newShareId;
+    }
+
+    /**
+     * ✅ [신규] 공유 ID로 일기를 조회합니다. (권한 검사 포함)
+     * @param shareId 조회할 일기의 공유 ID
+     * @return 조회된 일기 데이터
+     */
+    @Transactional(readOnly = true)
+    public ILogFeedResponseDto getSharedLog(String shareId) {
+        // 1. shareId로 일기를 찾습니다. 없으면 예외를 발생시킵니다.
+        ILog log = ilogRepository.findByShareId(shareId)
+                .orElseThrow(() -> new IllegalArgumentException("공유된 일기를 찾을 수 없습니다."));
+
+        // 2. 현재 로그인한 사용자 정보를 가져옵니다. (로그인 안했으면 null)
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Long currentUserId = null;
+        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getName())) {
+            // ✅ [수정] Principal에서 User 객체를 직접 가져와 안전하게 ID를 추출합니다.
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof User) {
+                currentUserId = ((User) principal).getId();
+            }
+        }
+
+        // 3. 일기의 공개 범위를 확인하고 접근 권한을 검사합니다.
+        switch (log.getVisibility()) {
+            case PRIVATE:
+                // 비공개 일기는 절대 공유할 수 없습니다.
+                throw new IllegalStateException("비공개 처리된 일기입니다.");
+
+            case FRIENDS_ONLY:
+                // 친구 공개 일기는 로그인 상태여야 하고, '서로 친구' 관계여야 합니다.
+                if (currentUserId == null) {
+                    throw new IllegalStateException("친구에게만 공개된 일기입니다. 로그인이 필요합니다.");
+                }
+
+                Long authorId = log.getUserProfile().getUser().getId();
+
+                // 작성자 본인이면 통과
+                if (authorId.equals(currentUserId)) break;
+
+                // '서로 친구'인지 확인 (A->B, B->A 모두 팔로우)
+                boolean isFollowing = friendRepository.existsByFollowerIdAndFollowingId(currentUserId, authorId);
+                boolean isFollowedBy = friendRepository.existsByFollowerIdAndFollowingId(authorId, currentUserId);
+
+                if (!isFollowing || !isFollowedBy) {
+                    throw new IllegalStateException("친구에게만 공개된 일기입니다.");
+                }
+                break;
+        }
+
+        // 4. 모든 검사를 통과하면, 피드 형식으로 변환하여 반환합니다.
+        return ILogFeedResponseDto.fromEntity(log, currentUserId);
+    }
 }

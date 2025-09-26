@@ -84,15 +84,19 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
             "   EXISTS (SELECT 1 FROM Likes l WHERE l.iLog = i AND l.userProfile.userId = :currentUserProfileId)" +
             ") " +
             "FROM ILog i JOIN FETCH i.userProfile " +
-            "WHERE i.userProfile.userId = :currentUserProfileId OR " +
-            "(i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility)",
+            "WHERE i.userProfile.userId = :currentUserProfileId " + // 1. 내 글
+            "OR (i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility) " + // 2. 내가 팔로우하는 사람의 전체 공개 글
+            "OR (i.userProfile.userId IN :friendProfileIds AND i.visibility = :friendsVisibility)", // 3. 서로 팔로우하는 사람의 친구 공개 글
             countQuery = "SELECT count(i) FROM ILog i " +
                     "WHERE i.userProfile.userId = :currentUserProfileId OR " +
-                    "(i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility)")
-    Page<ILogFeedResponseDto> findFeedAsDtoByUserProfileIdAndFollowingIds(
+                    "(i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility) " +
+                    "OR (i.userProfile.userId IN :friendProfileIds AND i.visibility = :friendsVisibility)")
+    Page<ILogFeedResponseDto> findCustomFeedForUser(
             @Param("currentUserProfileId") Long currentUserProfileId,
             @Param("followingProfileIds") List<Long> followingProfileIds,
+            @Param("friendProfileIds") List<Long> friendProfileIds,
             @Param("publicVisibility") ILog.Visibility publicVisibility,
+            @Param("friendsVisibility") ILog.Visibility friendsVisibility,
             Pageable pageable);
 
     // ---------------------------------------------------
@@ -133,4 +137,9 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
     // 🆕 [추가] 특정 사용자의 총 게시물 수 조회
     // ---------------------------------------------------
     long countByUserProfileUserId(Long userProfileId);
+
+    boolean existsByShareId(String newShareId);
+
+    // ✅ [신규] shareId로 ILog 엔티티를 찾는 메서드
+    Optional<ILog> findByShareId(String shareId);
 }

@@ -1,9 +1,6 @@
 package com.bj.ilji_server.ilog.controller;
 
-import com.bj.ilji_server.ilog.dto.ILogCreateRequest;
-import com.bj.ilji_server.ilog.dto.ILogFeedResponseDto;
-import com.bj.ilji_server.ilog.dto.ILogUpdateRequest;
-import com.bj.ilji_server.ilog.dto.ILogResponse;
+import com.bj.ilji_server.ilog.dto.*;
 import com.bj.ilji_server.ilog.service.ILogService;
 import com.bj.ilji_server.user.entity.User;
 import lombok.RequiredArgsConstructor;
@@ -60,19 +57,6 @@ public class ILogController {
         return ResponseEntity.ok(feedPage);
     }
 
-
-    // ---------------------------------------------------
-    // 1️⃣ 내 모든 일기 조회 (날짜 오름차순)
-    // ---------------------------------------------------
-//    @GetMapping("/{logId}")
-//    public ResponseEntity<ILogResponse> getLogById(
-//            @PathVariable Long logId,
-//            @AuthenticationPrincipal User currentUser) {
-//        ILogResponse log = ilogService.getLogById(logId, currentUser);
-//        return ResponseEntity.ok(log);
-//    }
-
-
     // ---------------------------------------------------
     // 🆕 [수정] 특정 사용자의 일기 목록 조회 (페이징 및 정렬 적용)
     // ---------------------------------------------------
@@ -112,6 +96,34 @@ public class ILogController {
 
         Page<ILogFeedResponseDto> likedILogs = ilogService.getLikedILogsByUser(targetUserId, currentUser, sortBy, page, size);
         return ResponseEntity.ok(likedILogs);
+    }
+
+    // ---------------------------------------------------
+    //  특정 일기의 공유 ID를 조회하거나 생성하는 API
+    // ---------------------------------------------------
+    /**
+            * ✅ [신규] 특정 일기의 공유 ID를 조회하거나 생성하는 API
+      * @param logId 일기 ID
+      * @return 생성된 공유 ID를 담은 응답
+      */
+    @PostMapping("/{logId}/share")
+    public ResponseEntity<ShareIdResponse> getOrCreateShareId(@PathVariable Long logId) {
+        String shareId = ilogService.getOrCreateShareId(logId);
+        return ResponseEntity.ok(new ShareIdResponse(shareId));
+    }
+
+    // ---------------------------------------------------
+    //  공유 ID로 일기 조회
+    // ---------------------------------------------------
+    /**
+     * ✅ [신규] 공유 ID로 일기 내용을 조회하는 API
+     * @param shareId 일기의 공유 ID
+     * @return 일기 데이터
+     */
+    @GetMapping("/share/{shareId}")
+    public ResponseEntity<ILogFeedResponseDto> getSharedLog(@PathVariable String shareId) {
+        ILogFeedResponseDto sharedLog = ilogService.getSharedLog(shareId);
+        return ResponseEntity.ok(sharedLog);
     }
 
     // ---------------------------------------------------

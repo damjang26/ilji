@@ -80,6 +80,11 @@ public class ILog {
     @Column(name = "tags", length = 1000)
     private String tags;
 
+    // ✅ [신규] 공유 기능을 위한 고유 ID 컬럼 추가
+    // unique = true로 설정하여 DB 수준에서 중복을 방지합니다.
+    @Column(name = "share_id", unique = true, length = 9)
+    private String shareId;
+
     @OneToMany(mappedBy = "iLog", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Likes> likes = new ArrayList<>();
 
@@ -94,6 +99,11 @@ public class ILog {
         }
         this.friendTags = friendTags;
         this.tags = tags;
+    }
+    
+    // ✅ [신규] shareId를 설정하기 위한 Setter 역할의 메서드
+    public void setShareId(String shareId) {
+        this.shareId = shareId;
     }
 
     // 편의 메서드
