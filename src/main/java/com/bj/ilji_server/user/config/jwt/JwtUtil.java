@@ -18,7 +18,7 @@ public class JwtUtil {
     @Value("${jwt.secret}")
     private String secret;
 
-    private static final long EXPIRATION_TIME = 1000 * 60 * 60 * 24; // 24시간
+    private static final long EXPIRATION_TIME = 1000L * 60 * 60 * 24 * 30; // 30일
 
     private Key getSigningKey() {
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);

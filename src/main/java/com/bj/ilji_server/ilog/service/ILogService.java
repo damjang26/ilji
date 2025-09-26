@@ -45,20 +45,21 @@ public class ILogService {
     private final ObjectMapper objectMapper;
     private final NotificationComposer notificationComposer; // NotificationComposer 주입
 
-    // 특정 사용자의 일기 목록 조회
-//    @Transactional(readOnly = true)
-//    public List<ILogResponse> getLogsForUser(User user) {
-//        // ✅ [개선] N+1 문제를 방지하기 위해 JOIN FETCH를 사용하여 ILog와 UserProfile을 한 번의 쿼리로 조회합니다.
-//        // ILog와 UserProfile을 한 번의 쿼리로 함께 조회하여 성능을 최적화합니다.
-//        List<ILog> logs = ilogRepository.findAllByUserProfileUserIdWithUserProfile(user.getUserProfile().getUserId());
-//        return logs.stream()
-//                .map(iLog -> {
-//                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
-//                    return ILogResponse.fromEntity(iLog, bestComment, objectMapper, user.getUserProfile().getUserId());
-//                })
-//                .collect(Collectors.toList());
-//    }
+//     특정 사용자의 일기 목록 조회
+    @Transactional(readOnly = true)
+    public List<ILogResponse> getLogsForUser(User user) {
+        // ✅ [개선] N+1 문제를 방지하기 위해 JOIN FETCH를 사용하여 ILog와 UserProfile을 한 번의 쿼리로 조회합니다.
+        // ILog와 UserProfile을 한 번의 쿼리로 함께 조회하여 성능을 최적화합니다.
+        List<ILog> logs = ilogRepository.findAllByUserProfileUserIdWithUserProfile(user.getUserProfile().getUserId());
+        return logs.stream()
+                .map(iLog -> {
+                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
+                    return ILogResponse.fromEntity(iLog, bestComment, objectMapper, user.getUserProfile().getUserId());
+                })
+                .collect(Collectors.toList());
+    }
 
+    // 모바일에서 사용 중입니다. //
     @Transactional(readOnly = true)
     public List<ILogResponse> getLogsForUserByDateRange(User user, LocalDate startDate, LocalDate endDate) {
         // Repository를 호출하여 기간 내의 데이터를 조회합니다.
@@ -73,6 +74,32 @@ public class ILogService {
                     return ILogResponse.fromEntity(iLog, bestComment, objectMapper, user.getUserProfile().getUserId());
                 })
                 .collect(Collectors.toList());
+    }
+
+    // 모바일에서 사용 중입니다. //
+    // 이전 일기 조회
+    @Transactional(readOnly = true)
+    public ILogResponse getPreviousLog(User user, LocalDate date) {
+        // ✅ [개선] Optional과 map을 사용하여 코드를 더 간결하고 Null-safe하게 만듭니다.
+        return ilogRepository.findFirstByUserProfileUserIdAndLogDateLessThanOrderByLogDateDesc(user.getUserProfile().getUserId(), date)
+                .map(log -> {
+                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(log.getId()).orElse(null);
+                    return ILogResponse.fromEntity(log, bestComment, objectMapper, user.getUserProfile().getUserId());
+                })
+                .orElse(null);
+    }
+
+    // 모바일에서 사용 중입니다. //
+    // 다음 일기 조회
+    @Transactional(readOnly = true)
+    public ILogResponse getNextLog(User user, LocalDate date) {
+        // ✅ [개선] Optional과 map을 사용하여 코드를 더 간결하고 Null-safe하게 만듭니다.
+        return ilogRepository.findFirstByUserProfileUserIdAndLogDateGreaterThanOrderByLogDateAsc(user.getUserProfile().getUserId(), date)
+                .map(log -> {
+                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(log.getId()).orElse(null);
+                    return ILogResponse.fromEntity(log, bestComment, objectMapper, user.getUserProfile().getUserId());
+                })
+                .orElse(null);
     }
 
     // 🆕 [추가] 특정 사용자의 ID로 일기 목록 조회 (친구 마이페이지용)
