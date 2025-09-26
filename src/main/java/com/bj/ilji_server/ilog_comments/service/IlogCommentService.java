@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,15 +34,25 @@ public class IlogCommentService {
         // 비로그인 사용자의 경우 ID를 -1L로 설정하여 유효하지 않은 사용자로 처리
         Long currentUserId = (currentUser != null) ? currentUser.getUserProfile().getUserId() : -1L;
 
+        List<Object[]> results;
         // 1. sortBy 값에 따라 적절한 Repository 메서드를 호출합니다.
-        // ✅ [개선] Repository에서 직접 DTO 리스트를 반환받아 코드를 간소화합니다.
         if ("recent".equalsIgnoreCase(sortBy)) {
             // '최신순'으로 정렬
-            return ilogCommentRepository.findTopLevelCommentsAsDtoByIlogIdOrderByRecent(ilogId, currentUserId);
+            results = ilogCommentRepository.findTopLevelCommentsWithLikeStatusOrderByRecent(ilogId, currentUserId);
         } else {
             // 기본값인 '좋아요순'으로 정렬
-            return ilogCommentRepository.findTopLevelCommentsAsDtoByIlogIdOrderByLikes(ilogId, currentUserId);
+            results = ilogCommentRepository.findTopLevelCommentsWithLikeStatusOrderByLikes(ilogId, currentUserId);
         }
+
+        // 2. ✅ [개선] 조회 결과를 DTO로 변환합니다.
+        // 이 과정에서 답글(자식 댓글)의 '좋아요' 여부까지 정확하게 계산합니다.
+        return results.stream()
+                .map(result -> {
+                    IlogComment comment = (IlogComment) result[0];
+                    boolean isLiked = (boolean) result[1];
+                    return IlogCommentResponseDto.from(comment, isLiked, currentUserId);
+                })
+                .collect(Collectors.toList());
     }
 
     /**
@@ -84,21 +95,33 @@ public class IlogCommentService {
         // 5. 일기의 댓글 수를 1 증가시킵니다.
         iLog.increaseCommentCount();
 
-        // 6. 알림 생성 (자기 자신은 제외)
-        Long recipientId = iLog.getUserProfile().getUserId();
-        if (!recipientId.equals(currentUser.getUserProfile().getUserId())) {
-            notificationComposer.ilogCommentCreated(
-                    recipientId,
-                    iLog.getId(),
-                    iLog.getLogDate(),
-                    currentUser.getUserProfile().getUserId(),
-                    currentUser.getUserProfile().getNickname()
-            );
+        // 6. 알림 생성
+        // ✅ [개선] 댓글 종류에 따라 알림 수신자를 다르게 설정합니다.
+        if (parentComment != null) {
+            // 대댓글(답글)인 경우, 부모 댓글 작성자에게 알림을 보냅니다.
+            Long parentCommentAuthorId = parentComment.getUserProfile().getUserId();
+            // 자기 자신의 댓글에 답글을 다는 경우는 알림을 보내지 않습니다.
+            if (!parentCommentAuthorId.equals(currentUser.getUserProfile().getUserId())) {
+                notificationComposer.ilogCommentCreated(
+                        parentCommentAuthorId, // 수신자: 부모 댓글 작성자
+                        iLog.getId(), iLog.getLogDate(),
+                        currentUser.getUserProfile().getUserId(), currentUser.getUserProfile().getNickname());
+            }
+        } else {
+            // 최상위 댓글인 경우, 일기 작성자에게 알림을 보냅니다.
+            Long iLogAuthorId = iLog.getUserProfile().getUserId();
+            // 자기 자신의 일기에 댓글을 다는 경우는 알림을 보내지 않습니다.
+            if (!iLogAuthorId.equals(currentUser.getUserProfile().getUserId())) {
+                notificationComposer.ilogCommentCreated(
+                        iLogAuthorId, // 수신자: 일기 작성자
+                        iLog.getId(), iLog.getLogDate(),
+                        currentUser.getUserProfile().getUserId(), currentUser.getUserProfile().getNickname());
+            }
         }
 
         // 7. 저장된 엔티티를 DTO로 변환하여 반환합니다.
-        // 새로 생성된 댓글은 아직 '좋아요'를 누르지 않은 상태이므로 isLiked는 false입니다.
-        return IlogCommentResponseDto.from(savedComment, false);
+        // ✅ [수정] from 메서드 시그니처에 맞게 currentUserId를 전달합니다.
+        return IlogCommentResponseDto.from(savedComment, false, currentUser.getUserProfile().getUserId());
     }
 
     /**

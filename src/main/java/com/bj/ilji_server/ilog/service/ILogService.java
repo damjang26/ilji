@@ -241,13 +241,13 @@ public class ILogService {
     @Transactional
     public void deleteLog(User user, Long logId) {
         ILog log = ilogRepository.findById(logId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + logId));
+                .orElseThrow(() -> new IllegalArgumentException("ILog not found with id: " + logId));
 
         // ✅ [수정] 소유권 검사를 UserProfile의 User ID와 현재 로그인한 User의 ID를 비교합니다.
         // [수정] @MapsId 관계로 인해 userProfile.getUserId()가 null일 수 있으므로,
         // userProfile에 연결된 User 객체의 ID를 통해 비교해야 정확합니다.
         if (!log.getUserProfile().getUser().getId().equals(user.getId())) {
-            throw new SecurityException("일기를 삭제할 권한이 없습니다.");
+            throw new SecurityException("You do not have permission to delete this log.");
         }
 
         // ✅ 이미지 삭제 (실패 시 예외 → 트랜잭션 롤백)
@@ -262,7 +262,7 @@ public class ILogService {
                     firebaseService.deleteFile(url); // 이제 실패하면 IOException 던짐
                 }
             } catch (Exception e) {
-                throw new RuntimeException("이미지 삭제에 실패했습니다. 일기 삭제를 중단합니다.", e);
+                throw new RuntimeException("Failed to delete images. Halting log deletion.", e);
             }
         }
 
@@ -276,13 +276,13 @@ public class ILogService {
     public ILogResponse updateLog(Long logId, User user, ILogUpdateRequest request, List<MultipartFile> newImages) throws IOException {
         // 1. 일기 조회 및 수정 권한 확인
         ILog log = ilogRepository.findById(logId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + logId));
+                .orElseThrow(() -> new IllegalArgumentException("ILog not found with id: " + logId));
 
         // [수정] @MapsId 관계로 인해 userProfile.getUserId()가 null일 수 있으므로,
         // userProfile에 연결된 User 객체의 ID를 통해 비교해야 정확합니다.
         if (!log.getUserProfile().getUser().getId().equals(user.getId())) {
             // ✅ [개선] 권한 없음 예외는 SecurityException을 사용하는 것이 더 의미에 맞습니다.
-            throw new SecurityException("일기를 수정할 권한이 없습니다.");
+            throw new SecurityException("You do not have permission to update this log.");
         }
 
         // 2. 이미지 변경 처리
@@ -304,7 +304,7 @@ public class ILogService {
             try {
                 firebaseService.deleteFile(url);
             } catch (Exception e) {
-                throw new RuntimeException("기존 이미지 삭제에 실패했습니다. 일기 수정을 중단합니다.", e);
+                throw new RuntimeException("Failed to delete existing images. Halting log update.", e);
             }
         }
 
