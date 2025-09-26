@@ -60,8 +60,14 @@ public class Schedule {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "reminder_minutes_before")
+    private Integer reminderMinutesBefore;
+
+    @Column(name = "reminder_sent")
+    private boolean reminderSent = false;
+
     @Builder
-    public Schedule(Long userId, Long calendarId, String title, String location, Tag tag, String description, LocalDateTime startTime, LocalDateTime endTime, Integer isAllDay, String rrule) {
+    public Schedule(Long userId, Long calendarId, String title, String location, Tag tag, String description, LocalDateTime startTime, LocalDateTime endTime, Integer isAllDay, String rrule, Integer reminderMinutesBefore) {
         this.userId = userId;
         this.calendarId = calendarId;
         this.title = title;
@@ -72,6 +78,7 @@ public class Schedule {
         this.endTime = endTime;
         this.isAllDay = isAllDay;
         this.rrule = rrule;
+        this.reminderMinutesBefore = reminderMinutesBefore;
     }
 
     public void update(ScheduleUpdateRequest request, Tag tag) {
@@ -85,5 +92,9 @@ public class Schedule {
         // DTO의 boolean 값을 1 또는 0으로 변환하여 저장
         this.isAllDay = request.isAllDay() ? 1 : 0;
         this.rrule = request.getRrule();
+        this.reminderMinutesBefore = request.getReminderMinutesBefore();
     }
-}
+
+    public void setReminderSent(boolean reminderSent) {
+        this.reminderSent = reminderSent;
+    }

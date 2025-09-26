@@ -46,6 +46,9 @@ public class User implements UserDetails {
     @JsonManagedReference
     private UserProfile userProfile;
 
+    @Column(name = "fcm_token", nullable = true)
+    private String fcmToken;
+
     @Builder
     public User(Long id, String email, String name, String picture, String provider, String providerId) {
         this.id = id;
@@ -60,6 +63,10 @@ public class User implements UserDetails {
         this.name = name;
         this.picture = picture;
         return this;
+    }
+
+    public void setFcmToken(String fcmToken) {
+        this.fcmToken = fcmToken;
     }
 
     /**

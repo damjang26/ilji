@@ -369,4 +369,21 @@ public class NotificationComposer {
             notificationService.create(n);
         }
     }
+
+    public void scheduleItemReminder(com.bj.ilji_server.schedule.entity.Schedule schedule) {
+        String title = "Reminder: " + schedule.getTitle();
+        String body = "Starts at " + schedule.getStartTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+
+        Notification n = new Notification();
+        n.setRecipientId(schedule.getUserId());
+        n.setType(NotificationType.SCHEDULE_REMINDER);
+        n.setEntityType(EntityType.SCHEDULE);
+        n.setEntityId(schedule.getId());
+        n.setMessageTitle(title);
+        n.setMessageBody(body);
+        n.setLinkUrl("/schedules/" + schedule.getId());
+        n.setIdempotencyKey(IdempotencyKey.instant(schedule.getUserId(), NotificationType.SCHEDULE_REMINDER, EntityType.SCHEDULE, schedule.getId()));
+
+        notificationService.create(n);
+    }
 }

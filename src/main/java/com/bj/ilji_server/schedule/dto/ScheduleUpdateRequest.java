@@ -25,4 +25,5 @@ public class ScheduleUpdateRequest {
     @JsonProperty("isAllDay")
     private boolean allDay;
     private String rrule;
+    private Integer reminderMinutesBefore;
 }

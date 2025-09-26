@@ -1,6 +1,7 @@
 package com.bj.ilji_server.notification.type;
 
 public enum NotificationType {
+    SCHEDULE_REMINDER,        // 개별 일정 미리 알림
     SCHEDULE_DAILY_SUMMARY,   // 오늘 일정 요약
     DIARY_REMINDER,           // 일기 작성 리마인드
     FRIEND_POST_CREATED,      // 친구 공개/공유 포스트

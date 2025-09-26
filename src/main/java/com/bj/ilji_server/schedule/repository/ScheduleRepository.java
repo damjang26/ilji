@@ -68,4 +68,6 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
             @Param("end")   LocalDateTime end
     );
 
+    @Query("SELECT s FROM Schedule s WHERE s.reminderMinutesBefore IS NOT NULL AND s.reminderSent = false AND s.startTime - NUMTODSINTERVAL(s.reminderMinutesBefore, 'MINUTE') BETWEEN :from AND :to")
+    List<Schedule> findSchedulesToRemind(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 }
