@@ -15,35 +15,30 @@ import java.util.Collections;
 import java.util.List;
 
 @Getter
-@Builder // 생성자가 아닌 클래스 레벨로 이동하여 final 필드와 함께 사용합니다.
 public class ILogFeedResponseDto {
 
     private final Long id;
-    // ✅ [수정] UserFeedDto 대신 작성자 정보를 최상위 필드로 평탄화합니다.
     private final Long writerId;
     private final String writerNickname;
     private final String writerProfileImage;
     private final String content;
     private final List<String> images;
-    // ✅ [추가] 지적해주신 대로, 피드에서도 태그, 좋아요, 댓글 수를 보여주기 위해 필드를 추가합니다.
     private final String friendTags;
     private final String tags;
     private final int likeCount;
     private final int commentCount;
 
 
-
     private final ILog.Visibility visibility;
-    private final LocalDate logDate; // ✅ [추가] 일기 기록 날짜 필드
+    private final LocalDate logDate;
     private final LocalDateTime createdAt;
 
 
     private final boolean isLiked;
-    private final BestCommentDto bestComment; // ✅ [신규] 베스트 댓글 정보
+    private final BestCommentDto bestComment;
 
     // ✅ [신규] 베스트 댓글 정보를 담는 내부 DTO
     @Getter
-    @Builder
     public static class BestCommentDto {
         private final Long commentId;
         private final String content;
@@ -53,52 +48,53 @@ public class ILogFeedResponseDto {
             if (comment == null) {
                 return null;
             }
-            return BestCommentDto.builder()
-                    .commentId(comment.getId())
-                    .content(comment.getContent())
-                    .writerNickname(comment.getUserProfile().getNickname())
-                    .build();
+            return new BestCommentDto(comment.getId(), comment.getContent(), comment.getUserProfile().getNickname());
+        }
+
+        // Builder를 사용하지 않으므로, 모든 필드를 받는 생성자를 명시적으로 추가합니다.
+        @Builder
+        public BestCommentDto(Long commentId, String content, String writerNickname) {
+            this.commentId = commentId;
+            this.content = content;
+            this.writerNickname = writerNickname;
         }
     }
 
-    public static ILogFeedResponseDto fromEntity(ILog iLog, IlogComment bestComment, ObjectMapper objectMapper, Long currentUserId) {
+    /**
+     * JPQL에서 DTO로 직접 조회할 때 사용하는 생성자 (N+1 문제 해결용)
+     * Lombok의 @Builder를 이 생성자에 적용하여, Builder 패턴과 JPQL 직접 조회를 동시에 지원합니다.
+     * @param iLog 조회된 ILog 엔티티 (JOIN FETCH 되어 UserProfile 포함)
+     * @param bestComment JPQL 서브쿼리로 조회된 베스트 댓글
+     * @param isLiked JPQL 서브쿼리로 계산된 '좋아요' 여부
+     */
+    @Builder
+    public ILogFeedResponseDto(ILog iLog, IlogComment bestComment, boolean isLiked) {
+        // UserProfile이 null일 경우를 대비한 방어 코드
+        UserProfile userProfile = iLog.getUserProfile();
+        this.writerId = (userProfile != null) ? userProfile.getUserId() : null;
+        this.writerNickname = (userProfile != null) ? userProfile.getNickname() : "알 수 없는 사용자";
+        this.writerProfileImage = (userProfile != null) ? userProfile.getProfileImage() : null;
+
+        this.id = iLog.getId();
+        this.content = iLog.getContent();
+        this.friendTags = iLog.getFriendTags();
+        this.tags = iLog.getTags();
+        this.likeCount = iLog.getLikeCount();
+        this.commentCount = iLog.getCommentCount();
+        this.visibility = iLog.getVisibility();
+        this.logDate = iLog.getLogDate();
+        this.createdAt = iLog.getCreatedAt();
+        this.isLiked = isLiked;
+        this.bestComment = BestCommentDto.fromEntity(bestComment);
+
+        // 이미지 URL 파싱
         List<String> imageUrls = Collections.emptyList();
         if (iLog.getImgUrl() != null && !iLog.getImgUrl().isBlank()) {
             try {
-                imageUrls = objectMapper.readValue(iLog.getImgUrl(), new TypeReference<>() {});
-            } catch (IOException e) {
-                // ✅ [개선] 이미지 URL 파싱 실패 시 로그를 남겨 문제를 추적할 수 있도록 합니다.
-                System.err.println("Failed to parse image URLs for feed: " + e.getMessage());
-            }
+                imageUrls = new ObjectMapper().readValue(iLog.getImgUrl(), new TypeReference<>() {});
+            } catch (IOException ignored) {} // 생성자에서는 예외를 던지기 어려우므로 무시하거나 로깅
         }
-
-        // ✅ [개선] UserProfile이 null일 경우를 대비한 방어 코드
-        UserProfile userProfile = iLog.getUserProfile();
-        Long writerId = (userProfile != null) ? userProfile.getUserId() : null;
-        String writerNickname = (userProfile != null) ? userProfile.getNickname() : "알 수 없는 사용자";
-        String writerProfileImage = (userProfile != null) ? userProfile.getProfileImage() : null;
-
-        boolean isLiked = currentUserId != null && iLog.getLikes().stream()
-                .anyMatch(like -> like.getUserProfile().getUserId().equals(currentUserId));
-
-
-        return ILogFeedResponseDto.builder()
-                .id(iLog.getId())
-                .writerId(writerId)
-                .writerNickname(writerNickname)
-                .writerProfileImage(writerProfileImage)
-                .content(iLog.getContent())
-                .images(imageUrls) // JSON 문자열을 List로 변환
-                // ✅ [추가] ILog 엔티티에서 빠진 필드 정보를 채워줍니다.
-                .friendTags(iLog.getFriendTags())
-                .tags(iLog.getTags())
-                .likeCount(iLog.getLikeCount())
-                .commentCount(iLog.getCommentCount())
-                .visibility(iLog.getVisibility())
-                .logDate(iLog.getLogDate())
-                .createdAt(iLog.getCreatedAt())
-                .isLiked(isLiked)
-                .bestComment(BestCommentDto.fromEntity(bestComment)) // ✅ [신규] 베스트 댓글 DTO 생성
-                .build();
+        this.images = imageUrls;
     }
+
 }

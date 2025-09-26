@@ -3,7 +3,7 @@ package com.bj.ilji_server.ilog_comments.service;
 import com.bj.ilji_server.ilog.entity.ILog;
 import com.bj.ilji_server.ilog.repository.ILogRepository;
 import com.bj.ilji_server.ilog_comments.dto.IlogCommentCreateRequest;
-import com.bj.ilji_server.ilog_comments.dto.IlogCommentDto;
+import com.bj.ilji_server.ilog_comments.dto.IlogCommentResponseDto;
 import com.bj.ilji_server.ilog_comments.entity.IlogComment;
 import com.bj.ilji_server.ilog_comments.repository.IlogCommentRepository;
 import com.bj.ilji_server.notification.packing.NotificationComposer; // Import NotificationComposer
@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,29 +29,19 @@ public class IlogCommentService {
      * @param currentUser 현재 로그인한 사용자 (null일 수 있음)
      * @return 계층적으로 구성된 댓글 DTO 목록
      */
-    public List<IlogCommentDto> getCommentsByIlogId(Long ilogId, String sortBy, User currentUser) {
-        // 비로그인 사용자의 경우 ID를 0L로 설정하여 '좋아요'가 없는 것으로 간주
-        Long currentUserId = (currentUser != null) ? currentUser.getId() : 0L;
-
-        List<Object[]> results;
+    public List<IlogCommentResponseDto> getCommentsByIlogId(Long ilogId, String sortBy, User currentUser) {
+        // 비로그인 사용자의 경우 ID를 -1L로 설정하여 유효하지 않은 사용자로 처리
+        Long currentUserId = (currentUser != null) ? currentUser.getUserProfile().getUserId() : -1L;
 
         // 1. sortBy 값에 따라 적절한 Repository 메서드를 호출합니다.
+        // ✅ [개선] Repository에서 직접 DTO 리스트를 반환받아 코드를 간소화합니다.
         if ("recent".equalsIgnoreCase(sortBy)) {
             // '최신순'으로 정렬
-            results = ilogCommentRepository.findTopLevelCommentsWithLikeStatusByIlogIdOrderByRecent(ilogId, currentUserId);
+            return ilogCommentRepository.findTopLevelCommentsAsDtoByIlogIdOrderByRecent(ilogId, currentUserId);
         } else {
             // 기본값인 '좋아요순'으로 정렬
-            results = ilogCommentRepository.findTopLevelCommentsWithLikeStatusByIlogIdOrderByLikes(ilogId, currentUserId);
+            return ilogCommentRepository.findTopLevelCommentsAsDtoByIlogIdOrderByLikes(ilogId, currentUserId);
         }
-
-        // 2. 조회된 엔티티 목록을 DTO 목록으로 변환합니다.
-        return results.stream()
-                .map(result -> {
-                    IlogComment comment = (IlogComment) result[0];
-                    boolean isLiked = (Boolean) result[1];
-                    return IlogCommentDto.from(comment, isLiked);
-                })
-                .collect(Collectors.toList());
     }
 
     /**
@@ -63,7 +52,7 @@ public class IlogCommentService {
      * @return 생성된 댓글의 DTO
      */
     @Transactional
-    public IlogCommentDto createComment(Long ilogId, IlogCommentCreateRequest request, User currentUser) {
+    public IlogCommentResponseDto createComment(Long ilogId, IlogCommentCreateRequest request, User currentUser) {
         // 1. 댓글을 추가할 일기(ILog)를 조회합니다. 없으면 예외를 발생시킵니다.
         ILog iLog = iLogRepository.findById(ilogId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + ilogId));
@@ -103,7 +92,7 @@ public class IlogCommentService {
 
         // 7. 저장된 엔티티를 DTO로 변환하여 반환합니다.
         // 새로 생성된 댓글은 아직 '좋아요'를 누르지 않은 상태이므로 isLiked는 false입니다.
-        return IlogCommentDto.from(savedComment, false);
+        return IlogCommentResponseDto.from(savedComment, false);
     }
 
     /**
@@ -118,7 +107,7 @@ public class IlogCommentService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 댓글을 찾을 수 없습니다. id=" + commentId));
 
         // 2. 댓글 작성자의 ID와 현재 로그인한 사용자의 ID를 비교하여 소유권을 확인합니다.
-        if (!comment.getUserProfile().getUserId().equals(currentUser.getId())) {
+        if (!comment.getUserProfile().getUserId().equals(currentUser.getUserProfile().getUserId())) {
             throw new SecurityException("댓글을 삭제할 권한이 없습니다.");
         }
 

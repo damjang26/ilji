@@ -45,20 +45,6 @@ public class ILogService {
     private final ObjectMapper objectMapper;
     private final NotificationComposer notificationComposer; // NotificationComposer 주입
 
-    // 특정 사용자의 일기 목록 조회
-//    @Transactional(readOnly = true)
-//    public List<ILogResponse> getLogsForUser(User user) {
-//        // ✅ [개선] N+1 문제를 방지하기 위해 JOIN FETCH를 사용하여 ILog와 UserProfile을 한 번의 쿼리로 조회합니다.
-//        // ILog와 UserProfile을 한 번의 쿼리로 함께 조회하여 성능을 최적화합니다.
-//        List<ILog> logs = ilogRepository.findAllByUserProfileUserIdWithUserProfile(user.getUserProfile().getUserId());
-//        return logs.stream()
-//                .map(iLog -> {
-//                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
-//                    return ILogResponse.fromEntity(iLog, bestComment, objectMapper, user.getUserProfile().getUserId());
-//                })
-//                .collect(Collectors.toList());
-//    }
-
     @Transactional(readOnly = true)
     public List<ILogResponse> getLogsForUserByDateRange(User user, LocalDate startDate, LocalDate endDate) {
         // Repository를 호출하여 기간 내의 데이터를 조회합니다.
@@ -67,35 +53,9 @@ public class ILogService {
 
         // 조회된 ILog 엔티티 리스트를 ILogResponse DTO 리스트로 변환하여 반환합니다.
         // ✅ [수정] fromEntity 메소드가 여러 인자를 필요로 하므로, 메소드 참조 대신 람다식을 사용합니다.
+        // ✅ [개선] 베스트 댓글 조회 로직 제거
         return logs.stream()
-                .map(iLog -> {
-                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
-                    return ILogResponse.fromEntity(iLog, bestComment, objectMapper, user.getUserProfile().getUserId());
-                })
-                .collect(Collectors.toList());
-    }
-
-    // 🆕 [추가] 특정 사용자의 ID로 일기 목록 조회 (친구 마이페이지용)
-    @Transactional(readOnly = true)
-    // ✅ [수정] 'isLiked' 상태를 확인하기 위해 현재 사용자(currentUser) 정보를 함께 받습니다.
-    public List<ILogResponse> getLogsByUserId(Long userId, User currentUser) {
-        // 1. userId로 User를 찾습니다. User가 없다면 예외를 발생시킵니다.
-        User targetUser = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
-
-        // 2. 해당 사용자의 UserProfile ID와 '공개(PUBLIC)' 상태인 일기만 조회합니다.
-        //    친구의 비공개 일기는 보여주면 안 되기 때문입니다.
-        //    (findByProfileAndVisibility는 다음 단계에서 Repository에 추가할 예정입니다)
-        List<ILog> logs = ilogRepository.findByProfileAndVisibility(targetUser.getUserProfile().getUserId(), ILog.Visibility.PUBLIC);
-
-        // 3. 조회된 ILog 엔티티 목록을 ILogResponse DTO 목록으로 변환하여 반환합니다.
-        // ✅ [수정] fromEntity 메서드의 시그니처에 맞게 베스트 댓글과 현재 사용자 ID를 전달합니다.
-        return logs.stream()
-                .map(iLog -> {
-                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
-                    // 'isLiked'는 현재 접속한 사용자를 기준으로 판단해야 하므로 currentUser의 ID를 넘깁니다.
-                    return ILogResponse.fromEntity(iLog, bestComment, objectMapper, currentUser.getUserProfile().getUserId());
-                })
+                .map(iLog -> ILogResponse.fromEntity(iLog, null, objectMapper, user.getUserProfile().getUserId()))
                 .collect(Collectors.toList());
     }
 
@@ -106,26 +66,26 @@ public class ILogService {
         User targetUser = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
 
-        Page<ILog> logsPage;
+        // ✅ [개선] N+1 문제 해결을 위해 DTO로 직접 조회하는 Repository 메서드를 호출합니다.
+        Page<ILogResponse> logsPageDto;
         // ✅ [수정] 조회 대상 ID와 현재 사용자 ID를 비교
         if (userId.equals(currentUser.getId())) {
             // 2-1. ID가 같으면 '내' 마이페이지이므로 모든 일기를 조회합니다.
-            logsPage = ilogRepository.findAllByUserProfileUserId(
+            logsPageDto = ilogRepository.findAllAsDtoByUserProfileUserId(
                     targetUser.getUserProfile().getUserId(),
+                    currentUser.getUserProfile().getUserId(),
                     pageable);
         } else {
             // 2-2. ID가 다르면 '다른 사람' 마이페이지이므로 '공개'된 일기만 조회합니다.
-            logsPage = ilogRepository.findByUserProfileUserIdAndVisibility(
+            logsPageDto = ilogRepository.findAsDtoByUserProfileUserIdAndVisibility(
                     targetUser.getUserProfile().getUserId(),
                     ILog.Visibility.PUBLIC,
+                    currentUser.getUserProfile().getUserId(),
                     pageable);
         }
 
-        // 3. 조회된 Page<ILog>를 Page<ILogResponse>로 변환하여 반환합니다.
-        return logsPage.map(iLog -> {
-            IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
-            return ILogResponse.fromEntity(iLog, bestComment, objectMapper, currentUser.getUserProfile().getUserId());
-        });
+        // 3. 조회된 DTO 페이지를 그대로 반환합니다.
+        return logsPageDto;
     }
 
     // 🆕 [추가] 특정 사용자가 '좋아요' 누른 일기 목록 조회
@@ -155,23 +115,20 @@ public class ILogService {
         // 2. Pageable 객체를 생성합니다.
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        // 3. Repository를 호출하여 '좋아요' 누른 일기 목록을 조회합니다.
-        //    (findLikedILogsByUser 메서드는 다음 단계에서 Repository에 추가해야 합니다.)
-        Page<ILog> likedILogsPage;
+        // 3. ✅ [개선] N+1 문제 해결을 위해 DTO로 직접 조회하는 Repository 메서드를 호출합니다.
         if ("liked_at".equals(sortBy)) {
             // '좋아요 누른 순'은 별도의 쿼리로 처리
-            likedILogsPage = ilogRepository.findLikedILogsByUserOrderByLikedAt(targetUserId, pageable);
+            return ilogRepository.findLikedILogsAsDtoByUserOrderByLikedAt(
+                    targetUserId,
+                    currentUser.getUserProfile().getUserId(),
+                    pageable);
         } else {
             // '인기순', '작성순'은 Pageable에 설정된 Sort를 이용
-            likedILogsPage = ilogRepository.findLikedILogsByUser(targetUserId, pageable);
+            return ilogRepository.findLikedILogsAsDtoByUser(
+                    targetUserId,
+                    currentUser.getUserProfile().getUserId(),
+                    pageable);
         }
-
-        // 4. 조회된 Page<ILog>를 Page<ILogFeedResponseDto>로 변환합니다.
-        //    'isLiked' 여부는 현재 로그인한 사용자(currentUser)를 기준으로 판단합니다.
-        return likedILogsPage.map(iLog -> {
-            IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
-            return ILogFeedResponseDto.fromEntity(iLog, bestComment, objectMapper, currentUser.getUserProfile().getUserId());
-        });
     }
 
     @Transactional(readOnly = true)
@@ -209,8 +166,8 @@ public class ILogService {
             throw new SecurityException("해당 일기를 볼 권한이 없습니다.");
         }
 
-        IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(log.getId()).orElse(null);
-        return ILogResponse.fromEntity(log, bestComment, objectMapper, currentUser.getUserProfile().getUserId());
+        // ✅ [개선] 베스트 댓글 조회 로직 제거
+        return ILogResponse.fromEntity(log, null, objectMapper, currentUser.getUserProfile().getUserId());
     }
 
     @Transactional(readOnly = true)
@@ -233,20 +190,15 @@ public class ILogService {
             return Page.empty(pageable); // 팔로우하는 사람이 없으면 비어있는 페이지를 즉시 반환하여 불필요한 DB 조회를 막습니다.
         }
 
-        // 4. Repository에 위임하여 최종 피드 데이터를 조회한다.
-        // ✅ [개선] N+1 문제를 방지하기 위해 JOIN FETCH를 사용하는 새로운 Repository 메서드를 호출합니다.
-        Page<ILog> feedPage = ilogRepository.findFeedByUserProfileIdAndFollowingIds(
+        // 4. ✅ [개선] N+1 문제를 방지하기 위해 DTO로 직접 조회하는 Repository 메서드를 호출합니다.
+        return ilogRepository.findFeedAsDtoByUserProfileIdAndFollowingIds(
                 currentUser.getUserProfile().getUserId(),
                 followingProfileIds,
                 ILog.Visibility.PUBLIC, // 다른 사람의 글은 '공개'만
                 pageable
         );
 
-        // 5. Page<ILog>를 Page<ILogResponse>로 변환하여 반환한다.
-        return feedPage.map(iLog -> {
-            IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
-            return ILogFeedResponseDto.fromEntity(iLog, bestComment, objectMapper, currentUser.getUserProfile().getUserId());
-        });
+        // 5. 조회된 DTO 페이지를 그대로 반환하므로, 기존의 .map() 변환 로직은 필요 없습니다.
     }
 
     // ✅ [수정] 일기 등록 메서드를 이미지 파일(MultipartFile)을 함께 처리하도록 변경합니다.
@@ -315,10 +267,8 @@ public class ILogService {
     public ILogResponse getLogByDate(User user, LocalDate date) {
         // ✅ [개선] Optional과 map을 사용하여 코드를 더 간결하고 Null-safe하게 만듭니다.
         return ilogRepository.findByUserProfileUserIdAndLogDate(user.getUserProfile().getUserId(), date)
-                .map(log -> {
-                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(log.getId()).orElse(null);
-                    return ILogResponse.fromEntity(log, bestComment, objectMapper, user.getUserProfile().getUserId());
-                })
+                // ✅ [개선] 베스트 댓글 조회 로직 제거
+                .map(log -> ILogResponse.fromEntity(log, null, objectMapper, user.getUserProfile().getUserId()))
                 .orElse(null);
     }
 
@@ -411,9 +361,8 @@ public class ILogService {
         log.update(request.getContent(), finalImageUrlsJson, request.getVisibility());
 
         // 4. 변경된 엔티티를 Response DTO로 변환하여 반환합니다. (@Transactional에 의해 DB에는 자동 저장됩니다.)
-        // ✅ [수정] fromEntity 메서드에 ObjectMapper를 전달하여 JSON 필드를 올바르게 처리하도록 수정합니다.
-        IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(log.getId()).orElse(null);
-        return ILogResponse.fromEntity(log, bestComment, objectMapper, user.getUserProfile().getUserId());
+        // ✅ [개선] 베스트 댓글 조회 로직 제거
+        return ILogResponse.fromEntity(log, null, objectMapper, user.getUserProfile().getUserId());
     }
 
 }

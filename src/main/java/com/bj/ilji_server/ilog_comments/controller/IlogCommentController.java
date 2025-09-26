@@ -1,7 +1,7 @@
 package com.bj.ilji_server.ilog_comments.controller;
 
 import com.bj.ilji_server.ilog_comments.dto.IlogCommentCreateRequest;
-import com.bj.ilji_server.ilog_comments.dto.IlogCommentDto;
+import com.bj.ilji_server.ilog_comments.dto.IlogCommentResponseDto;
 import com.bj.ilji_server.ilog_comments.service.IlogCommentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,7 +25,7 @@ public class IlogCommentController {
      * @return 댓글 목록
      */
     @GetMapping("/ilogs/{ilogId}/comments")
-    public ResponseEntity<List<IlogCommentDto>> getComments(
+    public ResponseEntity<List<IlogCommentResponseDto>> getComments(
             @PathVariable Long ilogId,
             // 'sortBy' 파라미터를 받습니다. 값이 없으면 기본으로 "likes"를 사용합니다.
             @RequestParam(name = "sortBy", defaultValue = "likes") String sortBy,
@@ -33,7 +33,7 @@ public class IlogCommentController {
             @AuthenticationPrincipal User user
     ) {
         // ✅ [수정] 서비스 메서드에 user 객체를 전달합니다.
-        List<IlogCommentDto> comments = ilogCommentService.getCommentsByIlogId(ilogId, sortBy, user);
+        List<IlogCommentResponseDto> comments = ilogCommentService.getCommentsByIlogId(ilogId, sortBy, user);
         return ResponseEntity.ok(comments);
     }
 
@@ -45,7 +45,7 @@ public class IlogCommentController {
      * @return 생성된 댓글 정보
      */
     @PostMapping("/ilogs/{ilogId}/comments")
-    public ResponseEntity<IlogCommentDto> createComment(
+    public ResponseEntity<IlogCommentResponseDto> createComment(
             @PathVariable Long ilogId,
             @RequestBody IlogCommentCreateRequest request,
             @AuthenticationPrincipal User user // Spring Security를 통해 주입
@@ -53,7 +53,7 @@ public class IlogCommentController {
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build(); // 로그인하지 않은 사용자 접근 차단
         }
-        IlogCommentDto createdComment = ilogCommentService.createComment(ilogId, request, user);
+        IlogCommentResponseDto createdComment = ilogCommentService.createComment(ilogId, request, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdComment);
     }
 
