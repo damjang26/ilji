@@ -55,13 +55,19 @@ public class IlogCommentService {
     public IlogCommentResponseDto createComment(Long ilogId, IlogCommentCreateRequest request, User currentUser) {
         // 1. 댓글을 추가할 일기(ILog)를 조회합니다. 없으면 예외를 발생시킵니다.
         ILog iLog = iLogRepository.findById(ilogId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + ilogId));
+                .orElseThrow(() -> new IllegalArgumentException("ILog not found with id=" + ilogId));
 
         // 2. 대댓글인 경우, 부모 댓글을 조회합니다.
         IlogComment parentComment = null;
         if (request.getParentCommentId() != null) {
             parentComment = ilogCommentRepository.findById(request.getParentCommentId())
-                    .orElseThrow(() -> new IllegalArgumentException("부모 댓글을 찾을 수 없습니다. id=" + request.getParentCommentId()));
+                    .orElseThrow(() -> new IllegalArgumentException("Parent comment not found with id=" + request.getParentCommentId()));
+            // ✅ [추가] 대댓글(답글)에 또 다른 답글을 달 수 없도록 제한합니다.
+            // 부모 댓글이 될 댓글이 이미 다른 댓글의 자식 댓글이라면 예외를 발생시킵니다.
+            if (parentComment.getParent() != null) {
+                throw new IllegalArgumentException("Replies can only be added to top-level comments.");
+            }
+       
         }
 
         // 3. 새로운 댓글 엔티티를 생성합니다.
@@ -104,11 +110,11 @@ public class IlogCommentService {
     public void deleteComment(Long commentId, User currentUser) {
         // 1. 삭제할 댓글을 조회합니다. (N+1 방지를 위해 User 정보 함께 fetch)
         IlogComment comment = ilogCommentRepository.findByIdWithUser(commentId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 댓글을 찾을 수 없습니다. id=" + commentId));
+                .orElseThrow(() -> new IllegalArgumentException("Comment not found with id=" + commentId));
 
         // 2. 댓글 작성자의 ID와 현재 로그인한 사용자의 ID를 비교하여 소유권을 확인합니다.
         if (!comment.getUserProfile().getUserId().equals(currentUser.getUserProfile().getUserId())) {
-            throw new SecurityException("댓글을 삭제할 권한이 없습니다.");
+            throw new SecurityException("You do not have permission to delete this comment.");
         }
 
         // 3. 활성화된(삭제되지 않은) 자식 댓글이 있는지 확인합니다.

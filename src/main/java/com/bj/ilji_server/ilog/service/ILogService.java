@@ -132,73 +132,38 @@ public class ILogService {
     }
 
     @Transactional(readOnly = true)
-    public ILogResponse getLogById(Long logId, User currentUser) {
-        ILog log = ilogRepository.findById(logId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 일기를 찾을 수 없습니다. id=" + logId));
-
-        User author = log.getUserProfile().getUser();
-
-        // 권한 확인
-        boolean canView = false;
-        if (author.getId().equals(currentUser.getId())) {
-            // 1. 본인 글은 항상 볼 수 있음
-            canView = true;
-        } else {
-            switch (log.getVisibility()) {
-                case PUBLIC:
-                    // 2. 전체 공개 글은 누구나 볼 수 있음
-                    canView = true;
-                    break;
-                case FRIENDS_ONLY:
-                    // 3. 친구 공개 글은 친구만 볼 수 있음 (요청자가 작성자를 팔로우하는 경우)
-                    if (friendRepository.existsByFollowerAndFollowing(currentUser, author)) {
-                        canView = true;
-                    }
-                    break;
-                case PRIVATE:
-                    // 4. 비공개 글은 본인 외 볼 수 없음 (위에서 이미 처리됨)
-                    canView = false;
-                    break;
-            }
-        }
-
-        if (!canView) {
-            throw new SecurityException("해당 일기를 볼 권한이 없습니다.");
-        }
-
-        // ✅ [개선] 베스트 댓글 조회 로직 제거
-        return ILogResponse.fromEntity(log, null, objectMapper, currentUser.getUserProfile().getUserId());
-    }
-
-    @Transactional(readOnly = true)
     public Page<ILogFeedResponseDto> getFeedForUser(User currentUser, int page, int size) {
         // ✅ [수정] pageable 객체를 먼저 생성해야 if문에서 사용할 수 있습니다.
         // 1. 최신순(createdAt 기준 내림차순)으로 정렬 조건을 설정한다.
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        // 2. 내가 팔로우하는 사람들의 ID 목록을 조회한다.
-        // ✅ [수정] User ID가 아닌, UserProfile의 ID 목록을 가져와야 합니다.
+        // 2. 내가 팔로우하는 사람들의 프로필 ID 목록을 조회한다.
         List<Long> followingProfileIds = friendRepository.findAllByFollower(currentUser)
                 .stream()
                 .map(friend -> friend.getFollowing().getUserProfile().getUserId())
                 .collect(Collectors.toList());
 
-        // 3. [개선] 만약 팔로우하는 사용자가 없다면, 빈 리스트를 전달하여 불필요한 쿼리 조건을 피합니다.
-        // JPA와 대부분의 DB는 빈 리스트를 잘 처리하지만, 명시적으로 비어있음을 나타내는 것이 더 안전할 수 있습니다.
-        // ✅ [개선] new ArrayList<>() 대신 Collections.emptyList()를 사용하여 불변의 빈 리스트를 명시적으로 사용합니다.
-        if (followingProfileIds.isEmpty()) {
-            return Page.empty(pageable); // 팔로우하는 사람이 없으면 비어있는 페이지를 즉시 반환하여 불필요한 DB 조회를 막습니다.
-        }
+        // 3. 나를 팔로우하는 사람들의 프로필 ID 목록을 조회한다.
+        List<Long> followerProfileIds = friendRepository.findAllByFollowing(currentUser)
+                .stream()
+                .map(friend -> friend.getFollower().getUserProfile().getUserId())
+                .collect(Collectors.toList());
 
-        // 4. ✅ [개선] N+1 문제를 방지하기 위해 DTO로 직접 조회하는 Repository 메서드를 호출합니다.
-        return ilogRepository.findFeedAsDtoByUserProfileIdAndFollowingIds(
+        // 4. '서로 팔로우'하는 친구(friends)의 프로필 ID 목록을 계산한다. (교집합)
+        List<Long> friendProfileIds = followingProfileIds.stream()
+                .filter(followerProfileIds::contains)
+                .collect(Collectors.toList());
+
+        // 5. ✅ [수정] Repository의 변경된 메서드(findCustomFeedForUser)를 호출합니다.
+        // N+1 문제를 방지하고 '친구 공개' 게시물까지 포함하여 피드를 조회합니다.
+        return ilogRepository.findCustomFeedForUser(
                 currentUser.getUserProfile().getUserId(),
                 followingProfileIds,
-                ILog.Visibility.PUBLIC, // 다른 사람의 글은 '공개'만
+                friendProfileIds,
+                ILog.Visibility.PUBLIC,       // '전체 공개' 상태값 전달
+                ILog.Visibility.FRIENDS_ONLY, // '친구 공개' 상태값 전달
                 pageable
         );
-
-        // 5. 조회된 DTO 페이지를 그대로 반환하므로, 기존의 .map() 변환 로직은 필요 없습니다.
     }
 
     // ✅ [수정] 일기 등록 메서드를 이미지 파일(MultipartFile)을 함께 처리하도록 변경합니다.
