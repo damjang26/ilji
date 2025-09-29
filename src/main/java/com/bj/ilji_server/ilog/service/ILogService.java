@@ -1,5 +1,6 @@
 package com.bj.ilji_server.ilog.service;
 
+
 import com.bj.ilji_server.firebase.FirebaseService;
 import com.bj.ilji_server.friend.entity.Friend; // Import Friend entity
 import com.bj.ilji_server.friend.repository.FriendRepository;
@@ -21,6 +22,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,6 +33,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -374,4 +378,87 @@ public class ILogService {
         return ILogResponse.fromEntity(log, null, objectMapper, user.getUserProfile().getUserId());
     }
 
+    /**
+     * ✅ [신규] 특정 일기의 공유 ID를 조회하거나 생성합니다.
+     * @param logId 공유 ID를 생성할 일기의 ID
+     * @return 생성되거나 조회된 공유 ID
+     */
+    @Transactional
+    public String getOrCreateShareId(Long logId) {
+        // 1. 일기를 조회합니다. 없으면 예외를 발생시킵니다.
+        ILog log = ilogRepository.findById(logId)
+                .orElseThrow(() -> new IllegalArgumentException("ILog not found with id: " + logId));
+
+        // 2. shareId가 이미 존재하는지 확인합니다.
+        if (log.getShareId() != null && !log.getShareId().isBlank()) {
+            return log.getShareId(); // 이미 있으면 그대로 반환
+        }
+
+        // 3. shareId가 없으면, 중복되지 않는 9자리 랜덤 숫자를 생성합니다.
+        String newShareId;
+        do {
+            // 100,000,000 ~ 999,999,999 사이의 9자리 숫자 생성
+            int randomNumber = 100_000_000 + ThreadLocalRandom.current().nextInt(900_000_000);
+            newShareId = String.valueOf(randomNumber);
+        } while (ilogRepository.existsByShareId(newShareId)); // DB에 이미 존재하는 ID인지 확인
+
+        // 4. 생성된 고유 ID를 엔티티에 설정하고 저장합니다.
+        // @Transactional에 의해 메서드 종료 시 자동으로 UPDATE 쿼리가 실행됩니다.
+        log.setShareId(newShareId);
+
+        return newShareId;
+    }
+
+    /**
+     * ✅ [신규] 공유 ID로 일기를 조회합니다. (권한 검사 포함)
+     * @param shareId 조회할 일기의 공유 ID
+     * @return 조회된 일기 데이터
+     */
+    @Transactional(readOnly = true)
+    public ILogFeedResponseDto getSharedLog(String shareId) {
+        // 1. shareId로 일기를 찾습니다. 없으면 예외를 발생시킵니다.
+        ILog log = ilogRepository.findByShareId(shareId)
+                .orElseThrow(() -> new IllegalArgumentException("공유된 일기를 찾을 수 없습니다."));
+
+        // 2. 현재 로그인한 사용자 정보를 가져옵니다. (로그인 안했으면 null)
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Long currentUserId = null;
+        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getName())) {
+            // ✅ [수정] Principal에서 User 객체를 직접 가져와 안전하게 ID를 추출합니다.
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof User) {
+                currentUserId = ((User) principal).getId();
+            }
+        }
+
+        // 3. 일기의 공개 범위를 확인하고 접근 권한을 검사합니다.
+        switch (log.getVisibility()) {
+            case PRIVATE:
+                // 비공개 일기는 절대 공유할 수 없습니다.
+                throw new IllegalStateException("비공개 처리된 일기입니다.");
+
+            case FRIENDS_ONLY:
+                // 친구 공개 일기는 로그인 상태여야 하고, '서로 친구' 관계여야 합니다.
+                if (currentUserId == null) {
+                    throw new IllegalStateException("친구에게만 공개된 일기입니다. 로그인이 필요합니다.");
+                }
+
+                Long authorId = log.getUserProfile().getUser().getId();
+
+                // 작성자 본인이면 통과
+                if (authorId.equals(currentUserId)) break;
+
+                // '서로 친구'인지 확인 (A->B, B->A 모두 팔로우)
+                boolean isFollowing = friendRepository.existsByFollowerIdAndFollowingId(currentUserId, authorId);
+                boolean isFollowedBy = friendRepository.existsByFollowerIdAndFollowingId(authorId, currentUserId);
+
+                if (!isFollowing || !isFollowedBy) {
+                    throw new IllegalStateException("친구에게만 공개된 일기입니다.");
+                }
+                break;
+        }
+
+        // 4. 모든 검사를 통과하면, 피드 형식으로 변환하여 반환합니다.
+        return ILogFeedResponseDto.fromEntity(log, currentUserId);
+    }
 }

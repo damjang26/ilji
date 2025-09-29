@@ -147,4 +147,9 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
     // 🆕 [추가] 특정 사용자의 총 게시물 수 조회
     // ---------------------------------------------------
     long countByUserProfileUserId(Long userProfileId);
+
+    boolean existsByShareId(String newShareId);
+
+    // ✅ [신규] shareId로 ILog 엔티티를 찾는 메서드
+    Optional<ILog> findByShareId(String shareId);
 }

@@ -97,4 +97,21 @@ public class ILogFeedResponseDto {
         this.images = imageUrls;
     }
 
+    /**
+     * ✅ [신규] 서비스 레이어에서 엔티티를 DTO로 변환할 때 사용하는 정적 팩토리 메서드입니다.
+     * '좋아요' 여부를 동적으로 계산합니다.
+     * @param iLog 조회된 ILog 엔티티
+     * @param currentUserId 현재 로그인한 사용자의 ID (비로그인 시 null)
+     * @return 생성된 ILogFeedResponseDto 객체
+     */
+    public static ILogFeedResponseDto fromEntity(ILog iLog, Long currentUserId) {
+        boolean isLiked = false;
+        if (currentUserId != null && iLog.getLikes() != null) {
+            isLiked = iLog.getLikes().stream()
+                    .anyMatch(like -> like.getUserProfile().getUser().getId().equals(currentUserId));
+        }
+        // 베스트 댓글은 이 컨텍스트에서 조회하지 않으므로 null을 전달합니다.
+        return new ILogFeedResponseDto(iLog, null, isLiked);
+    }
+
 }
