@@ -58,7 +58,7 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
     @Query(value = "SELECT new com.bj.ilji_server.ilog.dto.ILogResponse(" +
             "   i, " +
             "   null, " + // 베스트 댓글 조회 로직 제거
-            "   EXISTS (SELECT 1 FROM Likes l WHERE l.iLog = i AND l.userProfile.userId = :currentUserId)" +
+            "   ((SELECT COUNT(l) FROM Likes l WHERE l.iLog = i AND l.userProfile.userId = :currentUserId) > 0)" +
             ") " +
             "FROM ILog i JOIN FETCH i.userProfile " +
             "WHERE i.userProfile.userId = :targetUserId AND i.visibility = :visibility",
@@ -73,7 +73,7 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
     @Query(value = "SELECT new com.bj.ilji_server.ilog.dto.ILogResponse(" +
             "   i, " +
             "   null, " + // 베스트 댓글 조회 로직 제거
-            "   EXISTS (SELECT 1 FROM Likes l WHERE l.iLog = i AND l.userProfile.userId = :currentUserId)" +
+            "   ((SELECT COUNT(l) FROM Likes l WHERE l.iLog = i AND l.userProfile.userId = :currentUserId) > 0)" +
             ") " +
             "FROM ILog i JOIN FETCH i.userProfile " +
             "WHERE i.userProfile.userId = :targetUserId",
@@ -91,7 +91,7 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
     @Query(value = "SELECT new com.bj.ilji_server.ilog.dto.ILogFeedResponseDto(" +
             "   i, " +
             "   null, " + // 베스트 댓글 조회 로직 제거
-            "   EXISTS (SELECT 1 FROM Likes l WHERE l.iLog = i AND l.userProfile.userId = :currentUserProfileId)" +
+            "   ((SELECT COUNT(l) FROM Likes l WHERE l.iLog = i AND l.userProfile.userId = :currentUserProfileId) > 0)" +
             ") " +
             "FROM ILog i JOIN FETCH i.userProfile " +
             "WHERE i.userProfile.userId = :currentUserProfileId " + // 1. 내 글
@@ -115,7 +115,7 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
     @Query(value = "SELECT new com.bj.ilji_server.ilog.dto.ILogFeedResponseDto(" +
             "   i, " +
             "   null, " + // 베스트 댓글 조회 로직 제거
-            "   EXISTS (SELECT 1 FROM Likes l_check WHERE l_check.iLog = i AND l_check.userProfile.userId = :currentUserId)" +
+            "   ((SELECT COUNT(l_check) FROM Likes l_check WHERE l_check.iLog = i AND l_check.userProfile.userId = :currentUserId) > 0)" +
             ") " +
             "FROM ILog i JOIN i.likes l " +
             "WHERE l.userProfile.userId = :targetUserId",
@@ -132,7 +132,7 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
     @Query(value = "SELECT new com.bj.ilji_server.ilog.dto.ILogFeedResponseDto(" +
             "   i, " +
             "   null, " + // 베스트 댓글 조회 로직 제거
-            "   EXISTS (SELECT 1 FROM Likes l_check WHERE l_check.iLog = i AND l_check.userProfile.userId = :currentUserId)" +
+            "   ((SELECT COUNT(l_check) FROM Likes l_check WHERE l_check.iLog = i AND l_check.userProfile.userId = :currentUserId) > 0)" +
             ") " +
             "FROM ILog i JOIN i.likes l " +
             "WHERE l.userProfile.userId = :targetUserId ORDER BY l.createdAt DESC",

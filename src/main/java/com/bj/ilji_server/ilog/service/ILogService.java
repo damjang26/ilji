@@ -45,6 +45,20 @@ public class ILogService {
     private final ObjectMapper objectMapper;
     private final NotificationComposer notificationComposer; // NotificationComposer 주입
 
+    // 특정 사용자의 일기 목록 조회
+    @Transactional(readOnly = true)
+    public List<ILogResponse> getLogsForUser(User user) {
+        // ✅ [개선] N+1 문제를 방지하기 위해 JOIN FETCH를 사용하여 ILog와 UserProfile을 한 번의 쿼리로 조회합니다.
+        // ILog와 UserProfile을 한 번의 쿼리로 함께 조회하여 성능을 최적화합니다.
+        List<ILog> logs = ilogRepository.findAllByUserProfileUserIdWithUserProfile(user.getUserProfile().getUserId());
+        return logs.stream()
+                .map(iLog -> {
+                    IlogComment bestComment = ilogCommentRepository.findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(iLog.getId()).orElse(null);
+                    return ILogResponse.fromEntity(iLog, bestComment, objectMapper, user.getUserProfile().getUserId());
+                })
+                .collect(Collectors.toList());
+    }
+
     @Transactional(readOnly = true)
     public List<ILogResponse> getLogsForUserByDateRange(User user, LocalDate startDate, LocalDate endDate) {
         // Repository를 호출하여 기간 내의 데이터를 조회합니다.
@@ -85,27 +99,6 @@ public class ILogService {
                     return ILogResponse.fromEntity(log, bestComment, objectMapper, user.getUserProfile().getUserId());
                 })
                 .orElse(null);
-    }
-
-    // 🆕 [추가] 특정 사용자의 ID로 일기 목록 조회 (친구 마이페이지용)
-    @Transactional(readOnly = true)
-    // ✅ [수정] 'isLiked' 상태를 확인하기 위해 현재 사용자(currentUser) 정보를 함께 받습니다.
-    public List<ILogResponse> getLogsByUserId(Long userId, User currentUser) {
-        // 1. userId로 User를 찾습니다. User가 없다면 예외를 발생시킵니다.
-        User targetUser = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
-
-        // 2. 해당 사용자의 UserProfile ID와 '공개(PUBLIC)' 상태인 일기만 조회합니다.
-        //    친구의 비공개 일기는 보여주면 안 되기 때문입니다.
-        //    (findByProfileAndVisibility는 다음 단계에서 Repository에 추가할 예정입니다)
-        List<ILog> logs = ilogRepository.findByProfileAndVisibility(targetUser.getUserProfile().getUserId(), ILog.Visibility.PUBLIC);
-
-        // 3. 조회된 ILog 엔티티 목록을 ILogResponse DTO 목록으로 변환하여 반환합니다.
-        // ✅ [수정] fromEntity 메서드의 시그니처에 맞게 베스트 댓글과 현재 사용자 ID를 전달합니다.
-        // ✅ [개선] 베스트 댓글 조회 로직 제거
-        return logs.stream()
-                .map(iLog -> ILogResponse.fromEntity(iLog, null, objectMapper, user.getUserProfile().getUserId()))
-                .collect(Collectors.toList());
     }
 
     // 🆕 [추가] 특정 사용자의 ID로 일기 목록 페이징 조회 (친구 마이페이지용)
@@ -304,7 +297,8 @@ public class ILogService {
             try {
                 List<String> imageUrls = objectMapper.readValue(
                         log.getImgUrl(),
-                        new TypeReference<List<String>>() {}
+                        new TypeReference<List<String>>() {
+                        }
                 );
 
                 for (String url : imageUrls) {
@@ -338,7 +332,8 @@ public class ILogService {
         // 2-1. DB에 저장된 기존 이미지 URL 목록을 가져옵니다.
         List<String> oldImageUrls = new ArrayList<>();
         if (log.getImgUrl() != null && !log.getImgUrl().isBlank()) {
-            oldImageUrls = objectMapper.readValue(log.getImgUrl(), new TypeReference<>() {});
+            oldImageUrls = objectMapper.readValue(log.getImgUrl(), new TypeReference<>() {
+            });
         }
 
         // 2-2. 프론트에서 보낸 '유지할 이미지' 목록에 없는 기존 이미지는 Firebase에서 삭제합니다.
