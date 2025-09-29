@@ -34,7 +34,7 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED, authException.getMessage())))
                 // [ROLLBACK-POINT 1] END
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/error", "/ws/**", "/api/proxy/**").permitAll()
+                        .requestMatchers("/api/auth/**", "/error", "/ws/**", "/api/proxy/**", "/ai/**").permitAll()
                         .requestMatchers("/api/auth/**", "/error").permitAll()
                         .requestMatchers("/api/proxy/**", "/error").permitAll()
                         .requestMatchers("/api/schedules/**").authenticated()
