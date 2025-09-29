@@ -27,6 +27,7 @@ repositories {
 dependencies {
 /* --- Spring 기본 --- */
     implementation 'org.springframework.boot:spring-boot-starter-web'      // REST API
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'  // WebClient (Reactive)
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa' // JPA
     implementation 'org.springframework.boot:spring-boot-starter-security' // (권장) CORS/보호자원/필터 구성용
 
