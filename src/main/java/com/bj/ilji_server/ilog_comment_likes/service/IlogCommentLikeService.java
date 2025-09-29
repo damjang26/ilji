@@ -34,9 +34,9 @@ public class IlogCommentLikeService {
     public boolean toggleCommentLike(Long commentId, Long userId) {
         // 1. 사용자(UserProfile)와 댓글(IlogComment) 엔티티를 조회합니다.
         UserProfile userProfile = userProfileRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다: " + userId));
+                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
         IlogComment ilogComment = ilogCommentRepository.findById(commentId)
-                .orElseThrow(() -> new EntityNotFoundException("댓글을 찾을 수 없습니다: " + commentId));
+                .orElseThrow(() -> new EntityNotFoundException("Comment not found with id: " + commentId));
 
         // 2. 해당 사용자가 해당 댓글에 '좋아요'를 눌렀는지 확인합니다.
         Optional<IlogCommentLike> existingLike = ilogCommentLikeRepository.findByUserProfileAndIlogComment(userProfile, ilogComment);

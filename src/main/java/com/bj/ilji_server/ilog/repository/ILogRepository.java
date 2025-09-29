@@ -1,5 +1,7 @@
 package com.bj.ilji_server.ilog.repository;
 
+import com.bj.ilji_server.ilog.dto.ILogFeedResponseDto;
+import com.bj.ilji_server.ilog.dto.ILogResponse;
 import com.bj.ilji_server.ilog.entity.ILog;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -49,51 +51,97 @@ public interface ILogRepository extends JpaRepository<ILog, Long>  {
     @Query("SELECT i FROM ILog i JOIN FETCH i.userProfile WHERE i.userProfile.userId = :userProfileId AND i.logDate = :logDate")
     Optional<ILog> findByUserProfileUserIdAndLogDate(@Param("userProfileId") Long userProfileId, @Param("logDate") LocalDate logDate);
 
-    // 🆕 [추가] 특정 사용자의 특정 공개 상태인 일기 목록 조회 (친구 마이페이지용)
-    // N+1 문제 방지를 위해 JOIN FETCH 사용
-    @Query("SELECT i FROM ILog i JOIN FETCH i.userProfile WHERE i.userProfile.userId = :userProfileId AND i.visibility = :visibility ORDER BY i.logDate ASC")
-    List<ILog> findByProfileAndVisibility(@Param("userProfileId") Long userProfileId, @Param("visibility") ILog.Visibility visibility);
 
-    // 🆕 [추가] 특정 사용자의 특정 공개 상태인 일기 목록 페이징 조회
-    @Query(value = "SELECT i FROM ILog i JOIN FETCH i.userProfile WHERE i.userProfile.userId = :userProfileId AND i.visibility = :visibility",
-           countQuery = "SELECT count(i) FROM ILog i WHERE i.userProfile.userId = :userProfileId AND i.visibility = :visibility")
-    Page<ILog> findByUserProfileUserIdAndVisibility(@Param("userProfileId") Long userProfileId, @Param("visibility") ILog.Visibility visibility, Pageable pageable);
+    // ---------------------------------------------------
+    // 🆕 마이페이지용 일기 목록 조회 (N+1 문제 해결)
+    // ---------------------------------------------------
+    @Query(value = "SELECT new com.bj.ilji_server.ilog.dto.ILogResponse(" +
+            "   i, " +
+            "   null, " + // 베스트 댓글 조회 로직 제거
+            "   EXISTS (SELECT 1 FROM Likes l WHERE l.iLog = i AND l.userProfile.userId = :currentUserId)" +
+            ") " +
+            "FROM ILog i JOIN FETCH i.userProfile " +
+            "WHERE i.userProfile.userId = :targetUserId AND i.visibility = :visibility",
+            countQuery = "SELECT count(i) FROM ILog i WHERE i.userProfile.userId = :targetUserId AND i.visibility = :visibility")
+    Page<ILogResponse> findAsDtoByUserProfileUserIdAndVisibility(
+            @Param("targetUserId") Long targetUserId,
+            @Param("visibility") ILog.Visibility visibility,
+            @Param("currentUserId") Long currentUserId,
+            Pageable pageable
+    );
 
-    // 🆕 [추가] 특정 사용자의 모든 일기 목록 페이징 조회 (내 마이페이지용)
-    @Query(value = "SELECT i FROM ILog i JOIN FETCH i.userProfile WHERE i.userProfile.userId = :userProfileId",
-           countQuery = "SELECT count(i) FROM ILog i WHERE i.userProfile.userId = :userProfileId")
-    Page<ILog> findAllByUserProfileUserId(@Param("userProfileId") Long userProfileId, Pageable pageable);
+    @Query(value = "SELECT new com.bj.ilji_server.ilog.dto.ILogResponse(" +
+            "   i, " +
+            "   null, " + // 베스트 댓글 조회 로직 제거
+            "   EXISTS (SELECT 1 FROM Likes l WHERE l.iLog = i AND l.userProfile.userId = :currentUserId)" +
+            ") " +
+            "FROM ILog i JOIN FETCH i.userProfile " +
+            "WHERE i.userProfile.userId = :targetUserId",
+            countQuery = "SELECT count(i) FROM ILog i WHERE i.userProfile.userId = :targetUserId")
+    Page<ILogResponse> findAllAsDtoByUserProfileUserId(
+            @Param("targetUserId") Long targetUserId,
+            @Param("currentUserId") Long currentUserId,
+            Pageable pageable
+    );
 
-
-    @Query(value = "SELECT i FROM ILog i JOIN FETCH i.userProfile " +
-                   "WHERE i.userProfile.userId = :currentUserProfileId OR " +
-                   "(i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility)",
-           countQuery = "SELECT count(i) FROM ILog i " +
-                        "WHERE i.userProfile.userId = :currentUserProfileId OR " +
-                        "(i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility)")
-    Page<ILog> findFeedByUserProfileIdAndFollowingIds(
+    // ---------------------------------------------------
+    // 🆕 PostList 일기 목록 조회
+    // ---------------------------------------------------
+    // ✅ [개선] N+1 문제 해결을 위해 DTO로 직접 조회하도록 변경
+    @Query(value = "SELECT new com.bj.ilji_server.ilog.dto.ILogFeedResponseDto(" +
+            "   i, " +
+            "   null, " + // 베스트 댓글 조회 로직 제거
+            "   EXISTS (SELECT 1 FROM Likes l WHERE l.iLog = i AND l.userProfile.userId = :currentUserProfileId)" +
+            ") " +
+            "FROM ILog i JOIN FETCH i.userProfile " +
+            "WHERE i.userProfile.userId = :currentUserProfileId " + // 1. 내 글
+            "OR (i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility) " + // 2. 내가 팔로우하는 사람의 전체 공개 글
+            "OR (i.userProfile.userId IN :friendProfileIds AND i.visibility = :friendsVisibility)", // 3. 서로 팔로우하는 사람의 친구 공개 글
+            countQuery = "SELECT count(i) FROM ILog i " +
+                    "WHERE i.userProfile.userId = :currentUserProfileId OR " +
+                    "(i.userProfile.userId IN :followingProfileIds AND i.visibility = :publicVisibility) " +
+                    "OR (i.userProfile.userId IN :friendProfileIds AND i.visibility = :friendsVisibility)")
+    Page<ILogFeedResponseDto> findCustomFeedForUser(
             @Param("currentUserProfileId") Long currentUserProfileId,
             @Param("followingProfileIds") List<Long> followingProfileIds,
+            @Param("friendProfileIds") List<Long> friendProfileIds,
             @Param("publicVisibility") ILog.Visibility publicVisibility,
+            @Param("friendsVisibility") ILog.Visibility friendsVisibility,
             Pageable pageable);
 
     // ---------------------------------------------------
-    // 🆕 [추가] 특정 사용자가 '좋아요' 누른 일기 목록 조회
+    // 🆕 [추가] 특정 사용자가 '좋아요' 누른 일기 목록 조회 (N+1 문제 해결)
     // ---------------------------------------------------
-    @Query(value = "SELECT i FROM ILog i JOIN i.likes l " +
-                   "WHERE l.userProfile.userId = :userId",
-           countQuery = "SELECT count(i) FROM ILog i JOIN i.likes l " +
-                        "WHERE l.userProfile.userId = :userId")
-    Page<ILog> findLikedILogsByUser(@Param("userId") Long userId, Pageable pageable);
+    @Query(value = "SELECT new com.bj.ilji_server.ilog.dto.ILogFeedResponseDto(" +
+            "   i, " +
+            "   null, " + // 베스트 댓글 조회 로직 제거
+            "   EXISTS (SELECT 1 FROM Likes l_check WHERE l_check.iLog = i AND l_check.userProfile.userId = :currentUserId)" +
+            ") " +
+            "FROM ILog i JOIN i.likes l " +
+            "WHERE l.userProfile.userId = :targetUserId",
+            countQuery = "SELECT count(i) FROM ILog i JOIN i.likes l " +
+                    "WHERE l.userProfile.userId = :targetUserId")
+    Page<ILogFeedResponseDto> findLikedILogsAsDtoByUser(
+            @Param("targetUserId") Long targetUserId,
+            @Param("currentUserId") Long currentUserId,
+            Pageable pageable);
 
     // ---------------------------------------------------
-    // 🆕 [추가] 특정 사용자가 '좋아요' 누른 일기 목록 조회 ('좋아요 누른 순' 정렬)
+    // 🆕 [추가] 특정 사용자가 '좋아요' 누른 일기 목록 조회 ('좋아요 누른 순' 정렬, N+1 문제 해결)
     // ---------------------------------------------------
-    @Query(value = "SELECT i FROM ILog i JOIN i.likes l " +
-                   "WHERE l.userProfile.userId = :userId ORDER BY l.createdAt DESC",
-           countQuery = "SELECT count(i) FROM ILog i JOIN i.likes l " +
-                        "WHERE l.userProfile.userId = :userId")
-    Page<ILog> findLikedILogsByUserOrderByLikedAt(@Param("userId") Long userId, Pageable pageable);
+    @Query(value = "SELECT new com.bj.ilji_server.ilog.dto.ILogFeedResponseDto(" +
+            "   i, " +
+            "   null, " + // 베스트 댓글 조회 로직 제거
+            "   EXISTS (SELECT 1 FROM Likes l_check WHERE l_check.iLog = i AND l_check.userProfile.userId = :currentUserId)" +
+            ") " +
+            "FROM ILog i JOIN i.likes l " +
+            "WHERE l.userProfile.userId = :targetUserId ORDER BY l.createdAt DESC",
+            countQuery = "SELECT count(i) FROM ILog i JOIN i.likes l " +
+                    "WHERE l.userProfile.userId = :targetUserId")
+    Page<ILogFeedResponseDto> findLikedILogsAsDtoByUserOrderByLikedAt(
+            @Param("targetUserId") Long targetUserId,
+            @Param("currentUserId") Long currentUserId,
+            Pageable pageable);
 
     // ---------------------------------------------------
     // 🆕 [추가] 특정 사용자의 총 게시물 수 조회

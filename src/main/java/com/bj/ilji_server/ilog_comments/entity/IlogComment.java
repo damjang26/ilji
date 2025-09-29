@@ -1,6 +1,7 @@
 package com.bj.ilji_server.ilog_comments.entity;
 
 import com.bj.ilji_server.ilog.entity.ILog;
+import com.bj.ilji_server.ilog_comment_likes.entity.IlogCommentLike;
 import com.bj.ilji_server.user_profile.entity.UserProfile;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -58,6 +59,10 @@ public class IlogComment {
     @Column(name = "like_count", nullable = false)
     @ColumnDefault("0")
     private int likeCount = 0;
+
+    // ✅ [추가] 댓글 좋아요 목록과의 관계
+    @OneToMany(mappedBy = "ilogComment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<IlogCommentLike> commentLikes = new ArrayList<>();
 
     @Builder
     public IlogComment(ILog ilog, UserProfile userProfile, String content, IlogComment parent) {
