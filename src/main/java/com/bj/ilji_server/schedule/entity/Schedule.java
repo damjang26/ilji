@@ -64,7 +64,7 @@ public class Schedule {
     private Integer reminderMinutesBefore;
 
     @Column(name = "reminder_sent")
-    private boolean reminderSent = false;
+    private Boolean reminderSent = false;
 
     @Builder
     public Schedule(Long userId, Long calendarId, String title, String location, Tag tag, String description, LocalDateTime startTime, LocalDateTime endTime, Integer isAllDay, String rrule, Integer reminderMinutesBefore) {
@@ -98,3 +98,4 @@ public class Schedule {
     public void setReminderSent(boolean reminderSent) {
         this.reminderSent = reminderSent;
     }
+}

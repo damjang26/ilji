@@ -68,6 +68,12 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
             @Param("end")   LocalDateTime end
     );
 
-    @Query("SELECT s FROM Schedule s WHERE s.reminderMinutesBefore IS NOT NULL AND s.reminderSent = false AND s.startTime - NUMTODSINTERVAL(s.reminderMinutesBefore, 'MINUTE') BETWEEN :from AND :to")
-    List<Schedule> findSchedulesToRemind(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+    /**
+     * [수정됨] 알림을 보내야 할 가능성이 있는 모든 일정을 조회합니다.
+     * - 알림 시간이 설정되어 있고 (reminder_minutes_before IS NOT NULL)
+     * - 아직 알림이 발송되지 않은 (reminder_sent = false)
+     * 모든 일정을 가져옵니다. 실제 발송 시간 체크는 스케줄러의 자바 코드에서 수행합니다.
+     */
+    @Query("SELECT s FROM Schedule s WHERE s.reminderMinutesBefore IS NOT NULL AND s.reminderSent = false")
+    List<Schedule> findSchedulesToRemind();
 }

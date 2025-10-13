@@ -145,6 +145,7 @@ public class ScheduleService {
                 // DTO의 boolean 값을 1 또는 0으로 변환하여 저장
                 .isAllDay(request.isAllDay() ? 1 : 0)
                 .rrule(request.getRrule())
+                .reminderMinutesBefore(request.getReminderMinutesBefore())
                 .build();
 
         Schedule savedSchedule = scheduleRepository.save(newSchedule);
