@@ -55,4 +55,8 @@ public interface IlogCommentRepository extends JpaRepository<IlogComment, Long> 
      * @return 가장 좋아요가 많은 댓글 Optional
      */
     Optional<IlogComment> findTopByIlogIdAndIsDeletedFalseAndParentIsNullOrderByLikeCountDescCreatedAtDesc(Long ilogId);
+
+    void deleteAllByIlog(com.bj.ilji_server.ilog.entity.ILog ilog);
+
+    List<IlogComment> findAllByIlog(com.bj.ilji_server.ilog.entity.ILog ilog);
 }

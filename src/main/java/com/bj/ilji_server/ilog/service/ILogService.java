@@ -41,9 +41,10 @@ import java.util.stream.Collectors;
 public class ILogService {
 
     private final ILogRepository ilogRepository;
-    // ✅ [추가] 의존성 주입: User 정보 조회, Firebase 연동, JSON 변환을 위해 추가합니다.
     private final UserRepository userRepository;
     private final IlogCommentRepository ilogCommentRepository;
+    private final com.bj.ilji_server.ilog_comment_likes.repository.IlogCommentLikeRepository ilogCommentLikeRepository;
+    private final com.bj.ilji_server.likes.repository.LikesRepository likesRepository;
     private final FriendRepository friendRepository;
     private final FirebaseService firebaseService;
     private final ObjectMapper objectMapper;
@@ -289,14 +290,21 @@ public class ILogService {
         ILog log = ilogRepository.findById(logId)
                 .orElseThrow(() -> new IllegalArgumentException("ILog not found with id: " + logId));
 
-        // ✅ [수정] 소유권 검사를 UserProfile의 User ID와 현재 로그인한 User의 ID를 비교합니다.
-        // [수정] @MapsId 관계로 인해 userProfile.getUserId()가 null일 수 있으므로,
-        // userProfile에 연결된 User 객체의 ID를 통해 비교해야 정확합니다.
         if (!log.getUserProfile().getUser().getId().equals(user.getId())) {
             throw new SecurityException("You do not have permission to delete this log.");
         }
 
-        // ✅ 이미지 삭제 (실패 시 예외 → 트랜잭션 롤백)
+        // 1. 댓글 및 댓글의 좋아요 삭제
+        List<IlogComment> comments = ilogCommentRepository.findAllByIlog(log);
+        if (comments != null && !comments.isEmpty()) {
+            ilogCommentLikeRepository.deleteAllByIlogCommentIn(comments);
+            ilogCommentRepository.deleteAllByIlog(log);
+        }
+
+        // 2. 일기 자체의 좋아요 삭제
+        likesRepository.deleteAllByiLog(log);
+
+        // 3. 이미지 삭제
         if (log.getImgUrl() != null && !log.getImgUrl().isBlank()) {
             try {
                 List<String> imageUrls = objectMapper.readValue(
@@ -306,15 +314,15 @@ public class ILogService {
                 );
 
                 for (String url : imageUrls) {
-                    firebaseService.deleteFile(url); // 이제 실패하면 IOException 던짐
+                    firebaseService.deleteFile(url);
                 }
             } catch (Exception e) {
                 throw new RuntimeException("Failed to delete images. Halting log deletion.", e);
             }
         }
 
-        // ✅ 모든 이미지 삭제 성공 후 DB 삭제
-        ilogRepository.deleteById(logId);
+        // 4. 모든 종속성 삭제 후 일기 삭제
+        ilogRepository.delete(log);
     }
 
 

@@ -32,4 +32,6 @@ public interface IlogCommentLikeRepository extends JpaRepository<IlogCommentLike
     List<IlogCommentLike> findAllByIlogComment_Id(Long commentId);
 
     boolean existsByIlogComment_IdAndUserProfile_UserId(Long commentId, Long userId);
+
+    void deleteAllByIlogCommentIn(List<IlogComment> comments);
 }

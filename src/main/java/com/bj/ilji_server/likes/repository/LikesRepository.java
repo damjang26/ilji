@@ -20,4 +20,6 @@ public interface LikesRepository extends JpaRepository<Likes, Long> {
     @EntityGraph(attributePaths = {"userProfile"})
     List<Likes> findAllByiLog_Id(Long ilogId);
 
+    void deleteAllByiLog(ILog iLog);
+
 }
